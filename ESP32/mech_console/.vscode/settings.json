@@ -1,0 +1,83 @@
+{
+  "C_Cpp.intelliSenseEngine": "default",
+  "idf.extensionActivationMode": "always",
+  "cmake.configureOnOpen": false,
+  "cmake.configureOnEdit": false,
+  "cmake.automaticReconfigure": false,
+  "cmake.autoSelectActiveFolder": false,
+  "cmake.options.advanced": {
+    "build": {
+      "statusBarVisibility": "inherit",
+      "inheritDefault": "hidden"
+    },
+    "launch": {
+      "statusBarVisibility": "inherit",
+      "inheritDefault": "hidden"
+    },
+    "debug": {
+      "statusBarVisibility": "inherit",
+      "inheritDefault": "hidden"
+    }
+  },
+  "idf.openOcdConfigs": [
+    "board/esp32c3-builtin.cfg"
+  ],
+  "idf.openOcdLaunchArgs": [
+    "-d2",
+    "-c",
+    "telnet port 48440",
+    "-c",
+    "gdb port 33330",
+    "-f",
+    "board/esp32c3-builtin.cfg"
+  ],
+  "idf.port": "COM8",
+  "idf.currentSetup": "C:\\esp\\v6.1\\esp-idf",
+  "idf.customExtraVars": {
+    "IDF_TARGET": "esp32c3"
+  },
+  "clangd.path": "C:\\Users\\maxin\\.espressif\\tools\\esp-clang\\esp-19.1.2_20250312\\esp-clang\\bin\\clangd.exe",
+  "clangd.arguments": [
+    "--background-index",
+    "--query-driver=**",
+    "--compile-commands-dir=c:\\Git\\Embedded_Applications\\ESP32\\mech_console\\build"
+  ],
+  "idf.flashType": "UART",
+
+  "psi-header.config": {
+    "author": "maxin",
+    "license": "MIT"
+  },
+  "psi-header.changes-tracking": {
+    "isActive": true,
+    "autoHeader": "manualSave",
+    "enforceHeader": true,
+    "includeGlob": ["**/*.c", "**/*.h"],
+    "excludeGlob": [
+      "**/build/**",
+      "**/managed_components/**"
+    ]
+  },
+  "psi-header.lang-config": [
+    {
+      "language": "*",
+      "begin": "/*",
+      "prefix": " * ",
+      "end": " */",
+      "blankLinesAfter": 1
+    }
+  ],
+  "psi-header.templates": [
+    {
+      "language": "*",
+      "template": [
+        "@file    <<filename>>",
+        "@author  <<author>>",
+        "@date    <<dateformat('YYYY-MM-DD')>>",
+        "@brief   ",
+        "",
+        "SPDX-License-Identifier: <<spdxid>>"
+      ]
+    }
+  ]
+}

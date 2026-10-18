@@ -1,0 +1,2 @@
+# ESP32-C3-LCDkit: physical flash capacity is 4 MB.
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
