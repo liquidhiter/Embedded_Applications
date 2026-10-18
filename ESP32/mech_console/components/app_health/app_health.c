@@ -28,6 +28,12 @@
 /** @brief Indicates whether the app health module has been initialized or not */
 static bool app_health_initialized = false;
 
+/** @brief Indicates whether a stop request has been made for the app health task */
+static bool app_health_requested_stop = false;
+
+/** @brief Handle to the app health task */
+static TaskHandle_t app_health_task_handle = NULL;
+
 /* Application tag for logging */
 ESP_LOG_ATTR_TAG(TAG, "APP_HEALTH");
 
@@ -39,6 +45,14 @@ ESP_LOG_ATTR_TAG(TAG, "APP_HEALTH");
  * @param   pvParameters  Pointer to the task parameters (unused).
  */
 static void app_health_task(void *pvParameters);
+
+/**
+ * @brief   Handle the stop request for the app health task.
+ *
+ *          This function is called when the app health task receives a stop request.
+ *          It performs any necessary cleanup and deletes the task.
+ */
+static void handle_app_health_stop_request(void);
 
 /** @brief  Get the current execution time in seconds */
 static inline uint64_t _get_current_exec_time(void)
@@ -85,13 +99,13 @@ esp_err_t app_health_start(void)
         return ESP_ERR_INVALID_STATE;
     }
 
-    /* Create the app health task */
+    /* Create the app health task: save the task handle */
     BaseType_t result = xTaskCreate(app_health_task,
                                     "app_health_task",
                                     APP_HEALTH_TASK_STACK_SIZE,
                                     NULL,
                                     APP_HEALTH_TASK_PRIORITY,
-                                    NULL);
+                                    &app_health_task_handle);
     if (result != pdPASS) {
         return ESP_ERR_NO_MEM;
     }
@@ -103,12 +117,50 @@ esp_err_t app_health_start(void)
     return ESP_OK;
 }
 
+esp_err_t app_health_request_stop(void)
+{
+    if (!app_health_initialized) {
+        /* Can't stop if the task is not running */
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    if (app_health_requested_stop) {
+        /* Stop request already sent */
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    /* Notify the app health task to stop: always returns pdPASS */
+    (void) xTaskNotifyGive(app_health_task_handle);
+
+    /* Save the stop request state after notifying the task */
+    app_health_requested_stop = true;
+
+    return ESP_OK;
+}
+
 static void app_health_task(void *pvParameters)
 {
     (void) pvParameters;
 
+    uint32_t notification_value;
+
     for (;;) {
+
+        /* Log the current app health status */
         _log_app_health_status();
-        vTaskDelay(pdMS_TO_TICKS(APP_HEALTH_LOG_INTERVAL_MS));
+
+        /* Wait for the stop request or the log interval to elapse */
+        notification_value = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(APP_HEALTH_LOG_INTERVAL_MS));
+
+        if (notification_value > 0) {
+            handle_app_health_stop_request();
+        }
     }
+}
+
+static void handle_app_health_stop_request(void)
+{
+    /* Stop request received */
+    ESP_LOGI(TAG, "Stop request received. Exiting app health task.");
+    vTaskDelete(app_health_task_handle);
 }

@@ -1,2 +1,6 @@
 # ESP32-C3-LCDkit: physical flash capacity is 4 MB.
 CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+
+# Keep UART pins available for application data; use native USB for logs.
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+CONFIG_ESP_CONSOLE_SECONDARY_NONE=y

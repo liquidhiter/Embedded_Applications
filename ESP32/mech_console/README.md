@@ -1,6 +1,29 @@
 | Supported Targets | ESP32 | ESP32-C2 | ESP32-C3 | ESP32-C5 | ESP32-C6 | ESP32-C61 | ESP32-H2 | ESP32-H21 | ESP32-H4 | ESP32-P4 | ESP32-S2 | ESP32-S3 | ESP32-S31 | Linux |
 | ----------------- | ----- | -------- | -------- | -------- | -------- | --------- | -------- | --------- | -------- | -------- | -------- | -------- | --------- | ----- |
 
+# Host-side Python tools
+
+Run these commands from the project root. Python 3.12+ and host-tool dependencies
+are managed by uv in `.venv`; ESP-IDF keeps its own Python environment.
+
+```powershell
+uv sync --locked
+uv run python tools/uart_echo_test.py --port COM10
+```
+
+COM10 is the CH340 UART data port. COM8 is the ESP32 USB console.
+`uv run` selects the project environment automatically; manual activation is optional:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+Commit `pyproject.toml` and `uv.lock`. Local `.python-version`, `.venv`, and
+`.uv-cache` are ignored. Use `uv python pin 3.12` to select Python 3.12 locally.
+Add future host-tool dependencies with `uv add <package>`.
+The inherited `pytest_hello_world.py` requires the ESP-IDF embedded-test setup;
+its dependencies are not included in this UART-tool environment.
+
 # Hello World Example
 
 Starts a FreeRTOS task to print "Hello World".
