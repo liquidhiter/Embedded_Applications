@@ -1,0 +1,76 @@
+/*
+ * @file    frame_packet.h
+ * @author  maxin
+ * @date    2026-10-19
+ * @brief   Frame packet handling for the frame codec.
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+#pragma once
+
+#include <stdint.h>
+#include <stddef.h>
+
+#include "frame_common.h"
+
+/*! @brief Length of the header in a frame packet. */
+#define FRAME_PACKET_HEADER_LEN                     (20U)
+
+/*! @brief Offsets of various fields within the frame packet header. */
+#define FRAME_PACKET_HEADER_VERSION_OFFSET          (0U)
+#define FRAME_PACKET_HEADER_TYPE_OFFSET             (1U)
+#define FRAME_PACKET_HEADER_FLAGS_OFFSET            (2U)
+#define FRAME_PACKET_HEADER_SESSION_ID_OFFSET       (4U)
+#define FRAME_PACKET_HEADER_SEQUENCE_OFFSET         (12U)
+#define FRAME_PACKET_HEADER_PAYLOAD_LENGTH_OFFSET   (16U)
+#define FRAME_PACKET_HEADER_RESERVED_OFFSET         (18U)
+
+/*! @brief Length of the CRC32 field in a frame packet. */
+#define FRAME_PACKET_CRC32_LEN  (4U)
+
+/*! @brief Maximum payload size for a frame packet. */
+#define FRAME_PACKET_MAX_PAYLOAD_SIZE (512U)
+
+/*! @brief Total length of a frame packet, including header, payload, and CRC32. */
+#define FRAME_PACKET_TOTAL_LEN  (FRAME_PACKET_HEADER_LEN + FRAME_PACKET_MAX_PAYLOAD_SIZE + FRAME_PACKET_CRC32_LEN)
+
+/*! @brief Frame packet version. */
+#define FRAME_PACKET_VER (1U)
+
+/**
+ * @brief   Frame packet structure for the frame codec.
+ *
+ * This structure represents a frame packet, including its type, session ID, sequence number, and payload.
+ */
+typedef struct {
+    uint8_t type;
+    uint64_t session_id;
+    uint32_t sequence;
+
+    uint16_t payload_length;
+    uint8_t payload[FRAME_PACKET_MAX_PAYLOAD_SIZE];
+} frame_packet_t;
+
+/**
+ * @brief   Encode a frame packet into a byte array.
+ *
+ * @param   packet          Pointer to the frame packet to encode.
+ * @param   output          Pointer to the output buffer.
+ * @param   output_capacity Capacity of the output buffer.
+ * @param   output_length   Pointer to the variable to store the length of the encoded output.
+ *
+ * @return  Result of the encoding operation.
+ */
+frame_codec_result_t frame_packet_encode(const frame_packet_t *packet, uint8_t *output, size_t output_capacity, size_t *output_length);
+
+/**
+ * @brief   Decode a byte array into a frame packet.
+ *
+ * @param   encoded         Pointer to the encoded byte array.
+ * @param   encoded_length  Length of the encoded byte array.
+ * @param   packet          Pointer to the frame packet to store the decoded data.
+ *
+ * @return  Result of the decoding operation.
+ */
+frame_codec_result_t frame_packet_decode(const uint8_t *encoded, size_t encoded_length, frame_packet_t *packet);

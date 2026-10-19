@@ -20,6 +20,7 @@ mech_console/
 |   |-- pytest_frame_codec.py      One pytest item per Unity case
 |   |-- pytest_frame_stream.py     Stream-framer pytest items
 |   |-- pytest_frame_crc.py        CRC32 pytest items
+|   |-- pytest_frame_packet.py     Packet encoding pytest items
 |   |-- pytest_app_health.py       Health-task lifecycle pytest item
 |   |-- sdkconfig.defaults         Physical-board USB console configuration
 |   `-- sdkconfig.defaults.qemu    QEMU UART console configuration
