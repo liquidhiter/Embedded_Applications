@@ -1,0 +1,3 @@
+# Local editor configuration outside individual projects
+/ESP32/.vscode/
+/ESP32/.clangd
