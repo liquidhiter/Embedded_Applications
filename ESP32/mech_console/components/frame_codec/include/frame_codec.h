@@ -12,12 +12,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-typedef enum {
-    FRAME_CODEC_OK = 0,
-    FRAME_CODEC_INVALID_ARG,
-    FRAME_CODEC_NO_SPACE,
-    FRAME_CODEC_MALFORMED,
-} frame_codec_result_t;
+#include "frame_common.h"
 
 /**
  * @brief Encode a frame using COBS (Consistent Overhead Byte Stuffing).

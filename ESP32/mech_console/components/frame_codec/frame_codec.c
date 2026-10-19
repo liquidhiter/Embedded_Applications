@@ -12,7 +12,6 @@
 #include <string.h>
 
 #include "frame_codec.h"
-#include "include/frame_codec.h"
 
 frame_codec_result_t frame_cobs_encode(const uint8_t *src,
                                        size_t src_len,
