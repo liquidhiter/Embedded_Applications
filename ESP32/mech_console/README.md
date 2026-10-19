@@ -7,8 +7,8 @@
 ```text
 mech_console/
 |-- components/
-|   |-- app_health/                 Application health task
-|   |-- app_uart/                   UART setup and optional echo task
+|   |-- app_health/                 Health task and lifecycle Unity test
+|   |-- app_uart/                   UART driver setup and shared configuration
 |   `-- frame_codec/
 |       |-- frame_codec.c          COBS encoder and decoder
 |       |-- include/               Public codec interface
@@ -19,8 +19,13 @@ mech_console/
 |   |-- main/test_main.c           Unity test menu
 |   |-- pytest_frame_codec.py      One pytest item per Unity case
 |   |-- pytest_frame_stream.py     Stream-framer pytest items
+|   |-- pytest_app_health.py       Health-task lifecycle pytest item
 |   |-- sdkconfig.defaults         Physical-board USB console configuration
 |   `-- sdkconfig.defaults.qemu    QEMU UART console configuration
+|-- tests/uart_echo_app/
+|   |-- main/test_uart_echo.c      Dedicated UART echo firmware
+|   |-- conftest.py                Physical data-port option and opt-in guard
+|   `-- pytest_uart_echo.py        Six binary echo pytest cases
 |-- tools/uart_echo_test.py         Serial echo validation
 |-- tools/run_qemu_tests.py         Discover, build, and run project QEMU tests
 |-- CMakeLists.txt                  Application build definition
@@ -32,6 +37,9 @@ mech_console/
 
 The project CI workflow is `../../.github/workflows/mech-console.yml`.
 `build/`, `build-qemu/`, `.venv/`, and test reports are generated and ignored.
+The application entry point contains initialization only. Duplicate-start and
+timer-based stop checks live in `components/app_health/test/test_app_health.c`.
+They verify stop-request acceptance, not completion of idle-task memory cleanup.
 
 ## Build the application
 
@@ -95,11 +103,29 @@ runner and are not executed by QEMU. Reports are saved under `test-results/`.
 
 ## Run the UART echo test
 
-Enable `APP_UART_ECHO_TEST` in `components/app_uart/app_uart.c`, rebuild, and flash.
 Use CH340 TX to GPIO20, RX to GPIO21, and common ground with 3.3 V signal levels.
-Close other applications using COM10.
+Close applications using COM8 or COM10. Build the dedicated echo firmware, then
+let pytest flash it through COM8 and validate data through COM10:
 
 ```powershell
-uv sync --locked
+idf.py -C tests/uart_echo_app -DIDF_TARGET=esp32c3 build
+uv sync --locked --group test
+uv run --group test pytest tests/uart_echo_app --embedded-services esp,idf --target esp32c3 --port COM8 --uart-data-port COM10 --app-path tests/uart_echo_app --build-dir build -v
+```
+
+Six independent cases cover 1, 255, 256, 257, 1024, and 4096 bytes, each repeated
+ten times. The echo task exists only in this test app. Its `UART_ECHO_READY` log
+signals readiness before data transfer. Tests require `--uart-data-port` to opt
+in; no port is opened by hardware tests when this option is omitted. This app
+has no QEMU configuration and is excluded from the cloud QEMU regression.
+Testing changes the firmware on the board; restore the application afterward:
+
+```powershell
+idf.py -p COM8 flash
+```
+
+The standalone echo tool remains available after flashing the echo test app:
+
+```powershell
 uv run python tools/uart_echo_test.py --port COM10
 ```

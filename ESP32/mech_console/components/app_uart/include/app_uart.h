@@ -12,10 +12,14 @@
 #include "esp_err.h"
 
 /**
- * @brief   Start the UART application.
+ * @brief   Initialize the application UART driver and pins.
+ *
+ *          This function does not create a receive task or an echo task.
+ * @note    Not thread-safe; intended for a single initialization caller.
  *
  * @return
- *      - ESP_OK on success
- *      - ESP_FAIL on failure
+ *      - ESP_OK on success.
+ *      - ESP_ERR_INVALID_STATE if already initialized.
+ *      - A UART driver error code if initialization fails.
  */
 esp_err_t app_uart_start(void);
