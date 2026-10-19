@@ -66,6 +66,8 @@ env/
 # Local Python version selection and uv cache
 .python-version
 .uv-cache/
+.pytest_cache/
+test-results/
 
 # Language Servers
 .clangd/
