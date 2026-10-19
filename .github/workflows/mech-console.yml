@@ -39,7 +39,9 @@ jobs:
           python -m pip install uv
           uv sync --locked --group test --group dev --python 3.12
       - name: Check source formatting
-        run: uv run --group dev python tools/format_sources.py --check
+        run: |
+          . "$IDF_PATH/export.sh"
+          uv run --group dev python tools/format_sources.py --check
       - name: Build and run all project QEMU test apps
         run: |
           . "$IDF_PATH/export.sh"
