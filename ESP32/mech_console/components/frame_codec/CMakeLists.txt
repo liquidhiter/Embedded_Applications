@@ -1,2 +1,2 @@
-idf_component_register(SRCS "frame_codec.c" "frame_stream.c"
+idf_component_register(SRCS "frame_codec.c" "frame_stream.c" "frame_crc.c"
                        INCLUDE_DIRS "include")

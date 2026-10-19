@@ -12,13 +12,14 @@ mech_console/
 |   `-- frame_codec/
 |       |-- frame_codec.c          COBS encoder and decoder
 |       |-- include/               Public codec interface
-|       `-- test/                  COBS and stream-framer Unity cases
+|       `-- test/                  COBS, stream-framer, and CRC32 Unity cases
 |-- main/main.c                    Application entry point
 |-- tests/frame_codec_app/
 |   |-- CMakeLists.txt             Isolated test firmware project
 |   |-- main/test_main.c           Unity test menu
 |   |-- pytest_frame_codec.py      One pytest item per Unity case
 |   |-- pytest_frame_stream.py     Stream-framer pytest items
+|   |-- pytest_frame_crc.py        CRC32 pytest items
 |   |-- pytest_app_health.py       Health-task lifecycle pytest item
 |   |-- sdkconfig.defaults         Physical-board USB console configuration
 |   `-- sdkconfig.defaults.qemu    QEMU UART console configuration
