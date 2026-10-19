@@ -1,0 +1,69 @@
+name: ESP32-C3 codec tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ESP32/mech_console/**'
+      - '.github/workflows/esp32-codec.yml'
+  pull_request:
+    paths:
+      - 'ESP32/mech_console/**'
+      - '.github/workflows/esp32-codec.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codec-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qemu:
+    runs-on: ubuntu-24.04
+    container: espressif/idf:v6.1
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: bash
+        working-directory: ESP32/mech_console
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install QEMU and Python test tools
+        run: |
+          . "$IDF_PATH/export.sh"
+          apt-get update
+          apt-get install -y --no-install-recommends libgcrypt20 libglib2.0-0 libpixman-1-0 libsdl2-2.0-0 libslirp0
+          python "$IDF_PATH/tools/idf_tools.py" install qemu-riscv32
+          python -m pip install uv
+          uv sync --locked --group test --python 3.12
+      - name: Build ESP32-C3 test firmware
+        run: |
+          . "$IDF_PATH/export.sh"
+          idf.py -C tests/frame_codec_app -B "$PWD/tests/frame_codec_app/build-qemu" \
+            -DIDF_TARGET=esp32c3 \
+            -DSDKCONFIG="$PWD/tests/frame_codec_app/build-qemu/sdkconfig" \
+            -DSDKCONFIG_DEFAULTS=sdkconfig.defaults.qemu build
+      - name: Generate QEMU flash image
+        run: |
+          project_python="$PWD/.venv/bin/python"
+          cd tests/frame_codec_app/build-qemu
+          "$project_python" -m esptool --chip esp32c3 merge-bin \
+            --output flash_image.bin --pad-to-size 4MB @flash_args
+      - name: Run Unity tests in QEMU
+        run: |
+          . "$IDF_PATH/export.sh"
+          uv run --group test pytest tests/frame_codec_app/pytest_frame_codec.py \
+            --embedded-services idf,qemu --target esp32c3 \
+            --app-path tests/frame_codec_app --build-dir build-qemu \
+            --skip-regenerate-image yes \
+            --junitxml=test-results/codec-qemu.xml \
+            --root-logdir=test-results/embedded --unity-test-report-mode merge -v
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: esp32c3-codec-qemu-results
+          path: ESP32/mech_console/test-results/
+          if-no-files-found: warn

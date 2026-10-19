@@ -11,5 +11,6 @@ dependencies = [
 test = [
     "pytest>=9.1.1",
     "pytest-embedded-idf>=2.9.3",
+    "pytest-embedded-qemu>=2.9.3",
     "pytest-embedded-serial-esp>=2.9.3",
 ]

@@ -294,6 +294,7 @@ dependencies = [
 test = [
     { name = "pytest" },
     { name = "pytest-embedded-idf" },
+    { name = "pytest-embedded-qemu" },
     { name = "pytest-embedded-serial-esp" },
 ]
 
@@ -304,6 +305,7 @@ requires-dist = [{ name = "pyserial", specifier = ">=3.5,<4" }]
 test = [
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "pytest-embedded-idf", specifier = ">=2.9.3" },
+    { name = "pytest-embedded-qemu", specifier = ">=2.9.3" },
     { name = "pytest-embedded-serial-esp", specifier = ">=2.9.3" },
 ]
 
@@ -436,6 +438,19 @@ wheels = [
 ]
 
 [[package]]
+name = "pytest-embedded-qemu"
+version = "2.9.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pytest-embedded" },
+    { name = "qemu-qmp" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/97/3e/966a4a61a2faa89c5413f83d670029bb8a71d3de79346ae876ba73ef88e0/pytest_embedded_qemu-2.9.3.tar.gz", hash = "sha256:94681ccda27763ab35f4db3099d2475ce10356b3b3092d7740e79cdcd7670563", size = 7931, upload-time = "2026-08-31T11:53:28.706Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/81/2c/90d87354f57190e91ff8240fd854c1c2752ccb6d6175487a257424974b19/pytest_embedded_qemu-2.9.3-py3-none-any.whl", hash = "sha256:3f6f3d3f23f8c482b31fa7eb0368bb615915003305d32f9eaee461e1457091a6", size = 7929, upload-time = "2026-08-31T11:53:27.758Z" },
+]
+
+[[package]]
 name = "pytest-embedded-serial"
 version = "2.9.3"
 source = { registry = "https://pypi.org/simple" }
@@ -505,6 +520,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/da/92/1446574745d74df0c92e6aa4a7b0b3130706a4142b2d1a5869f2eaa423c6/pyyaml-6.0.3-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:16249ee61e95f858e83976573de0f5b2893b3677ba71c9dd36b9cf8be9ac6d65", size = 829923, upload-time = "2025-09-25T21:32:54.537Z" },
     { url = "https://files.pythonhosted.org/packages/f0/7a/1c7270340330e575b92f397352af856a8c06f230aa3e76f86b39d01b416a/pyyaml-6.0.3-cp314-cp314t-win_amd64.whl", hash = "sha256:4ad1906908f2f5ae4e5a8ddfce73c320c2a1429ec52eafd27138b7f1cbe341c9", size = 174062, upload-time = "2025-09-25T21:32:55.767Z" },
     { url = "https://files.pythonhosted.org/packages/f1/12/de94a39c2ef588c7e6455cfbe7343d3b2dc9d6b6b2f40c4c6565744c873d/pyyaml-6.0.3-cp314-cp314t-win_arm64.whl", hash = "sha256:ebc55a14a21cb14062aa4162f906cd962b28e2e9ea38f9b4391244cd8de4ae0b", size = 149341, upload-time = "2025-09-25T21:32:56.828Z" },
+]
+
+[[package]]
+name = "qemu-qmp"
+version = "0.0.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/6b/6c/96c9c30e7bfef81de67ba82b569672c5c9547bcb895457bb24a5d3b8b28e/qemu.qmp-0.0.3.tar.gz", hash = "sha256:cbc88fbcc115ee943d84447d172c642da120220451416c2f621acf33df1e1010", size = 78802, upload-time = "2023-07-10T17:52:07.089Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c7/80/85263c535be9f9de8104e567658b0879c063c3d9bde3a39a7d27beea00eb/qemu.qmp-0.0.3-py3-none-any.whl", hash = "sha256:9abf451e22c0964580135aef7e2b95c5da0bf63c692426da24fc38b56ff0ac8e", size = 71139, upload-time = "2023-07-10T17:52:05.551Z" },
 ]
 
 [[package]]

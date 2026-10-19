@@ -85,6 +85,33 @@ Append `-k decode` to select decoder cases or `-k decode-zero-data` for the
 embedded-zero regression. Use `--collect-only` to list cases without flashing.
 Restore the normal application with `idf.py -p COM8 flash` from the project directory.
 
+### Continuous integration with QEMU
+
+`.github/workflows/esp32-codec.yml` builds the test firmware with ESP-IDF v6.1
+and runs the same 11 pytest items in Espressif's ESP32-C3 QEMU emulator. It is
+triggered by relevant pushes to `main`, pull requests, and manual dispatch.
+JUnit reports and emulator logs are uploaded even when tests fail.
+
+QEMU executes the RISC-V firmware and Unity cases; this is not a native host
+build of the codec. Its separate `sdkconfig.defaults.qemu` uses a UART console,
+and `build-qemu` keeps generated files separate from physical-board builds.
+It validates software behavior, not real UART throughput, USB wiring, radio
+behavior, or board peripherals. Keep physical-board testing for those checks.
+
+For local QEMU testing, install Espressif's `qemu-riscv32` tool and add its binary
+directory to PATH. From the project directory in an ESP-IDF PowerShell terminal:
+
+```powershell
+idf.py -C tests/frame_codec_app -B "$PWD/tests/frame_codec_app/build-qemu" -DIDF_TARGET=esp32c3 "-DSDKCONFIG=$PWD/tests/frame_codec_app/build-qemu/sdkconfig" "-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.qemu" build
+uv sync --locked --group test
+Push-Location tests/frame_codec_app/build-qemu
+uv run --group test python -m esptool --chip esp32c3 merge-bin --output flash_image.bin --pad-to-size 4MB '@flash_args'
+Pop-Location
+uv run --group test pytest tests/frame_codec_app/pytest_frame_codec.py --embedded-services idf,qemu --target esp32c3 --app-path tests/frame_codec_app --build-dir build-qemu --skip-regenerate-image yes -v
+```
+
+No serial port or physical board is used by this command.
+
 ### UART echo tool
 
 The temporary echo task is currently disabled in `app_uart.c`. Enable its
