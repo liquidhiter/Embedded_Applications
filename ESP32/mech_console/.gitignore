@@ -68,6 +68,7 @@ env/
 .python-version
 .uv-cache/
 .pytest_cache/
+.ruff_cache/
 test-results/
 
 # Language Servers

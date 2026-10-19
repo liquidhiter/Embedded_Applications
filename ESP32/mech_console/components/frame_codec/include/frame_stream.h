@@ -9,9 +9,9 @@
 
 #pragma once
 
-#include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #include "frame_common.h"
 
@@ -29,7 +29,7 @@
  * Temporary calculation for maximum encoded size, which will be automatically deduced
  * from the actual frame structure later.
  */
-#define FRAME_STREAM_MAX_ENCODED_SIZE (539U)
+#define FRAME_STREAM_MAX_ENCODED_SIZE (FRAME_PACKET_TOTAL_LEN + FRAME_PACKET_TOTAL_LEN / 254 + 1)
 
 /**
  * @brief Callback function type for handling encoded frames in the stream.

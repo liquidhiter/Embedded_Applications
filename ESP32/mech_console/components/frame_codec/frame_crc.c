@@ -7,10 +7,10 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "frame_crc.h"
-
 #include <stddef.h>
 #include <stdint.h>
+
+#include "frame_crc.h"
 
 frame_codec_result_t frame_crc32(const uint8_t *data, size_t length, uint32_t *crc)
 {

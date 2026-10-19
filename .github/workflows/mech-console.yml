@@ -37,7 +37,9 @@ jobs:
           apt-get install -y --no-install-recommends libgcrypt20 libglib2.0-0 libpixman-1-0 libsdl2-2.0-0 libslirp0
           python "$IDF_PATH/tools/idf_tools.py" install qemu-riscv32
           python -m pip install uv
-          uv sync --locked --group test --python 3.12
+          uv sync --locked --group test --group dev --python 3.12
+      - name: Check source formatting
+        run: uv run --group dev python tools/format_sources.py --check
       - name: Build and run all project QEMU test apps
         run: |
           . "$IDF_PATH/export.sh"

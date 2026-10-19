@@ -1,0 +1,47 @@
+# ESP-IDF v6.1 conventions, expressed using clang-format 19.
+# ESP-IDF itself uses Astyle; this file follows its documented C layout.
+BasedOnStyle: LLVM
+Language: Cpp
+IndentWidth: 4
+ContinuationIndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 120
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterFunction: true
+  AfterControlStatement: Never
+  AfterStruct: false
+  AfterEnum: false
+  AfterUnion: false
+  BeforeElse: false
+  BeforeWhile: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+IndentCaseLabels: true
+PointerAlignment: Right
+ReferenceAlignment: Right
+SpaceBeforeParens: ControlStatements
+SpaceBeforeAssignmentOperators: true
+AlignAfterOpenBracket: Align
+AlignConsecutiveAssignments: None
+AlignConsecutiveDeclarations: None
+ReflowComments: false
+MaxEmptyLinesToKeep: 1
+KeepEmptyLinesAtTheStartOfBlocks: false
+LineEnding: LF
+InsertNewlineAtEOF: true
+SortIncludes: CaseSensitive
+IncludeBlocks: Regroup
+# Do not promote a matching source/header pair ahead of standard headers.
+IncludeIsMainRegex: '$^'
+IncludeCategories:
+  - Regex: '^<.*>$'
+    Priority: 1
+  - Regex: '^"(esp_[^"]*|sdkconfig\.h)"$'
+    Priority: 2
+  - Regex: '^"(app_[^"]*|frame_[^"]*)"$'
+    Priority: 4
+  - Regex: '.*'
+    Priority: 3

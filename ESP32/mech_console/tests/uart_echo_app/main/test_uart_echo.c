@@ -1,10 +1,13 @@
 #include <stdlib.h>
-#include "app_uart.h"
-#include "app_uart_config.h"
+
 #include "esp_check.h"
 #include "esp_log.h"
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+
+#include "app_uart.h"
+#include "app_uart_config.h"
 
 static const char *TAG = "UART_ECHO_TEST";
 

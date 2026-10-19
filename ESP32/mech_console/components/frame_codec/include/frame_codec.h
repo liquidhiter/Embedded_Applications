@@ -9,8 +9,8 @@
 
 #pragma once
 
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #include "frame_common.h"
 
@@ -24,10 +24,7 @@
  * @param dst_len Pointer to a variable to store the length of the encoded data.
  * @return frame_codec_result_t Result of the encoding operation.
  */
-frame_codec_result_t frame_cobs_encode(const uint8_t *src,
-                                       size_t src_len,
-                                       uint8_t *dst,
-                                       size_t dst_capacity,
+frame_codec_result_t frame_cobs_encode(const uint8_t *src, size_t src_len, uint8_t *dst, size_t dst_capacity,
                                        size_t *dst_len);
 
 /**
@@ -40,8 +37,5 @@ frame_codec_result_t frame_cobs_encode(const uint8_t *src,
  * @param dst_len Pointer to a variable to store the length of the decoded data.
  * @return frame_codec_result_t Result of the decoding operation.
  */
-frame_codec_result_t frame_cobs_decode(const uint8_t *src,
-                                       size_t src_len,
-                                       uint8_t *dst,
-                                       size_t dst_capacity,
+frame_codec_result_t frame_cobs_decode(const uint8_t *src, size_t src_len, uint8_t *dst, size_t dst_capacity,
                                        size_t *dst_len);

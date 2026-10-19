@@ -9,17 +9,17 @@
 
 #include <stdbool.h>
 
-#include "app_health.h"
+#include "esp_err.h"
+#include "esp_log.h"
+#include "esp_timer.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-#include "esp_err.h"
-#include "esp_timer.h"
-#include "esp_log.h"
+#include "app_health.h"
 
 #define APP_HEALTH_TASK_STACK_SIZE (2048U)
-#define APP_HEALTH_TASK_PRIORITY   (1U)
+#define APP_HEALTH_TASK_PRIORITY (1U)
 
 #define MICROSECONDS_IN_SECOND (1000000U)
 
@@ -86,8 +86,8 @@ static inline void _log_app_health_status(void)
     size_t current_free_heap = _get_current_free_heap();
     size_t minimum_ever_free_heap = _get_minimum_ever_free_heap();
 
-    ESP_LOGI(TAG, "Execution Time: %llu s, Current Free Heap: %u bytes, Minimum Ever Free Heap: %u bytes",
-             exec_time, current_free_heap, minimum_ever_free_heap);
+    ESP_LOGI(TAG, "Execution Time: %llu s, Current Free Heap: %u bytes, Minimum Ever Free Heap: %u bytes", exec_time,
+             current_free_heap, minimum_ever_free_heap);
 }
 
 /** @NOTE: app_health_start is only called from the app_main
@@ -100,12 +100,8 @@ esp_err_t app_health_start(void)
     }
 
     /* Create the app health task: save the task handle */
-    BaseType_t result = xTaskCreate(app_health_task,
-                                    "app_health_task",
-                                    APP_HEALTH_TASK_STACK_SIZE,
-                                    NULL,
-                                    APP_HEALTH_TASK_PRIORITY,
-                                    &app_health_task_handle);
+    BaseType_t result = xTaskCreate(app_health_task, "app_health_task", APP_HEALTH_TASK_STACK_SIZE, NULL,
+                                    APP_HEALTH_TASK_PRIORITY, &app_health_task_handle);
     if (result != pdPASS) {
         return ESP_ERR_NO_MEM;
     }
@@ -130,7 +126,7 @@ esp_err_t app_health_request_stop(void)
     }
 
     /* Notify the app health task to stop: always returns pdPASS */
-    (void) xTaskNotifyGive(app_health_task_handle);
+    (void)xTaskNotifyGive(app_health_task_handle);
 
     /* Save the stop request state after notifying the task */
     app_health_requested_stop = true;
@@ -140,12 +136,11 @@ esp_err_t app_health_request_stop(void)
 
 static void app_health_task(void *pvParameters)
 {
-    (void) pvParameters;
+    (void)pvParameters;
 
     uint32_t notification_value;
 
     for (;;) {
-
         /* Log the current app health status */
         _log_app_health_status();
 

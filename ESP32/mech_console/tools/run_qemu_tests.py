@@ -7,10 +7,9 @@ files within that app are collected; no case names are stored in this runner.
 """
 
 import os
-from pathlib import Path
 import subprocess
 import sys
-
+from pathlib import Path
 
 PROJECT = Path(__file__).resolve().parents[1]
 
@@ -25,7 +24,8 @@ def main() -> int:
     if not idf_path:
         raise SystemExit("Activate the ESP-IDF environment before running this script.")
     apps = sorted(
-        config.parent for config in (PROJECT / "tests").rglob("sdkconfig.defaults.qemu")
+        config.parent
+        for config in (PROJECT / "tests").rglob("sdkconfig.defaults.qemu")
         if (config.parent / "CMakeLists.txt").is_file()
         and not any(part.startswith("build") for part in config.relative_to(PROJECT / "tests").parts)
     )
@@ -36,20 +36,65 @@ def main() -> int:
         name = app.relative_to(PROJECT / "tests").as_posix().replace("/", "-")
         build = app / "build-qemu"
         try:
-            run([sys.executable, str(Path(idf_path) / "tools/idf.py"),
-                 "-C", str(app), "-B", str(build), "-DIDF_TARGET=esp32c3",
-                 f"-DSDKCONFIG={build / 'sdkconfig'}",
-                 "-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.qemu", "build"])
-            run(["uv", "run", "--group", "test", "python", "-m", "esptool",
-                 "--chip", "esp32c3", "merge-bin", "--output", "flash_image.bin",
-                 "--pad-to-size", "4MB", "@flash_args"], cwd=build)
-            run(["uv", "run", "--group", "test", "pytest", str(app),
-                 "--embedded-services", "idf,qemu", "--target", "esp32c3",
-                 "--app-path", str(app), "--build-dir", "build-qemu",
-                 "--skip-regenerate-image", "yes",
-                 f"--junitxml=test-results/{name}-qemu.xml",
-                 f"--root-logdir=test-results/{name}-embedded",
-                 "--unity-test-report-mode", "merge", "-v"])
+            run(
+                [
+                    sys.executable,
+                    str(Path(idf_path) / "tools/idf.py"),
+                    "-C",
+                    str(app),
+                    "-B",
+                    str(build),
+                    "-DIDF_TARGET=esp32c3",
+                    f"-DSDKCONFIG={build / 'sdkconfig'}",
+                    "-DSDKCONFIG_DEFAULTS=sdkconfig.defaults.qemu",
+                    "build",
+                ]
+            )
+            run(
+                [
+                    "uv",
+                    "run",
+                    "--group",
+                    "test",
+                    "python",
+                    "-m",
+                    "esptool",
+                    "--chip",
+                    "esp32c3",
+                    "merge-bin",
+                    "--output",
+                    "flash_image.bin",
+                    "--pad-to-size",
+                    "4MB",
+                    "@flash_args",
+                ],
+                cwd=build,
+            )
+            run(
+                [
+                    "uv",
+                    "run",
+                    "--group",
+                    "test",
+                    "pytest",
+                    str(app),
+                    "--embedded-services",
+                    "idf,qemu",
+                    "--target",
+                    "esp32c3",
+                    "--app-path",
+                    str(app),
+                    "--build-dir",
+                    "build-qemu",
+                    "--skip-regenerate-image",
+                    "yes",
+                    f"--junitxml=test-results/{name}-qemu.xml",
+                    f"--root-logdir=test-results/{name}-embedded",
+                    "--unity-test-report-mode",
+                    "merge",
+                    "-v",
+                ]
+            )
         except (subprocess.CalledProcessError, OSError) as error:
             print(f"FAILED {name}: {error}", file=sys.stderr)
             failed.append(name)

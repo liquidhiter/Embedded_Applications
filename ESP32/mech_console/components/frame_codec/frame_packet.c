@@ -7,13 +7,13 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "frame_packet.h"
-#include "frame_crc.h"
-#include "frame_codec.h"
-
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <string.h>
+
+#include "frame_codec.h"
+#include "frame_crc.h"
+#include "frame_packet.h"
 
 /* Helper Functions Prototype */
 static void write_u16_le(uint8_t *dst, uint16_t value);
@@ -25,7 +25,8 @@ static uint32_t read_u32_le(const uint8_t *src);
 static uint64_t read_u64_le(const uint8_t *src);
 
 /* Public API Implementation */
-frame_codec_result_t frame_packet_encode(const frame_packet_t *packet, uint8_t *output, size_t output_capacity, size_t *output_length)
+frame_codec_result_t frame_packet_encode(const frame_packet_t *packet, uint8_t *output, size_t output_capacity,
+                                         size_t *output_length)
 {
     if (output_length == NULL) {
         return FRAME_CODEC_INVALID_ARG;
@@ -48,11 +49,11 @@ frame_codec_result_t frame_packet_encode(const frame_packet_t *packet, uint8_t *
     uint8_t raw[FRAME_PACKET_TOTAL_LEN];
     raw[FRAME_PACKET_HEADER_VERSION_OFFSET] = FRAME_PACKET_VER;
     raw[FRAME_PACKET_HEADER_TYPE_OFFSET] = packet->type;
-    write_u16_le(raw + FRAME_PACKET_HEADER_FLAGS_OFFSET, 0);                  /* Flags */
+    write_u16_le(raw + FRAME_PACKET_HEADER_FLAGS_OFFSET, 0); /* Flags */
     write_u64_le(raw + FRAME_PACKET_HEADER_SESSION_ID_OFFSET, packet->session_id);
     write_u32_le(raw + FRAME_PACKET_HEADER_SEQUENCE_OFFSET, packet->sequence);
     write_u16_le(raw + FRAME_PACKET_HEADER_PAYLOAD_LENGTH_OFFSET, packet->payload_length);
-    write_u16_le(raw + FRAME_PACKET_HEADER_RESERVED_OFFSET, 0);                 /* Reserved */
+    write_u16_le(raw + FRAME_PACKET_HEADER_RESERVED_OFFSET, 0); /* Reserved */
 
     /* Copy payload into the raw buffer */
     memcpy(raw + FRAME_PACKET_HEADER_LEN, packet->payload, packet->payload_length);
@@ -72,7 +73,8 @@ frame_codec_result_t frame_packet_encode(const frame_packet_t *packet, uint8_t *
     /* Encode the raw buffer into the output buffer */
     size_t encoded_length = 0;
     /* -1 to reserve space for the frame delimiter(0) */
-    result = frame_cobs_encode(raw, FRAME_PACKET_HEADER_LEN + packet->payload_length + FRAME_PACKET_CRC32_LEN, output, output_capacity - 1, &encoded_length);
+    result = frame_cobs_encode(raw, FRAME_PACKET_HEADER_LEN + packet->payload_length + FRAME_PACKET_CRC32_LEN, output,
+                               output_capacity - 1, &encoded_length);
     if (result != FRAME_CODEC_OK) {
         return result;
     }
@@ -86,19 +88,22 @@ frame_codec_result_t frame_packet_encode(const frame_packet_t *packet, uint8_t *
 
 /* Helper Functions Implementation */
 
-static void write_u16_le(uint8_t *dst, uint16_t value) {
+static void write_u16_le(uint8_t *dst, uint16_t value)
+{
     dst[0] = (uint8_t)(value & 0xFF);
     dst[1] = (uint8_t)((value >> 8) & 0xFF);
 }
 
-static void write_u32_le(uint8_t *dst, uint32_t value) {
+static void write_u32_le(uint8_t *dst, uint32_t value)
+{
     dst[0] = (uint8_t)(value & 0xFF);
     dst[1] = (uint8_t)((value >> 8) & 0xFF);
     dst[2] = (uint8_t)((value >> 16) & 0xFF);
     dst[3] = (uint8_t)((value >> 24) & 0xFF);
 }
 
-static void write_u64_le(uint8_t *dst, uint64_t value) {
+static void write_u64_le(uint8_t *dst, uint64_t value)
+{
     dst[0] = (uint8_t)(value & 0xFF);
     dst[1] = (uint8_t)((value >> 8) & 0xFF);
     dst[2] = (uint8_t)((value >> 16) & 0xFF);
@@ -109,18 +114,19 @@ static void write_u64_le(uint8_t *dst, uint64_t value) {
     dst[7] = (uint8_t)((value >> 56) & 0xFF);
 }
 
-static uint16_t read_u16_le(const uint8_t *src) {
+static uint16_t read_u16_le(const uint8_t *src)
+{
     return (uint16_t)(src[0] | (src[1] << 8));
 }
 
-static uint32_t read_u32_le(const uint8_t *src) {
-    return (uint32_t)src[0]
-        | ((uint32_t)src[1] << 8)
-        | ((uint32_t)src[2] << 16)
-        | ((uint32_t)src[3] << 24);
+static uint32_t read_u32_le(const uint8_t *src)
+{
+    return (uint32_t)src[0] | ((uint32_t)src[1] << 8) | ((uint32_t)src[2] << 16) | ((uint32_t)src[3] << 24);
 }
 
-static uint64_t read_u64_le(const uint8_t *src) {
+static uint64_t read_u64_le(const uint8_t *src)
+{
     return (uint64_t)(src[0] | ((uint64_t)src[1] << 8) | ((uint64_t)src[2] << 16) | ((uint64_t)src[3] << 24) |
-                      ((uint64_t)src[4] << 32) | ((uint64_t)src[5] << 40) | ((uint64_t)src[6] << 48) | ((uint64_t)src[7] << 56));
+                      ((uint64_t)src[4] << 32) | ((uint64_t)src[5] << 40) | ((uint64_t)src[6] << 48) |
+                      ((uint64_t)src[7] << 56));
 }

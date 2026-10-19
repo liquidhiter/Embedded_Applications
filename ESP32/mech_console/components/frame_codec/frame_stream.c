@@ -7,9 +7,9 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "frame_stream.h"
-
 #include <stdint.h>
+
+#include "frame_stream.h"
 
 frame_codec_result_t frame_stream_init(frame_stream_t *stream, frame_stream_callback_t callback, void *context)
 {

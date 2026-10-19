@@ -60,6 +60,25 @@ uv sync --locked --group test
 uv run --group test pytest --collect-only -q
 ```
 
+## Format source files
+
+The C/H layout follows ESP-IDF conventions using clang-format 19.1.7: four-space
+indentation, a 120-column limit, and function braces on a separate line. Includes
+are grouped as standard C/POSIX headers, common ESP-IDF headers, other dependencies,
+and project headers (`app_*` and `frame_*`). ESP-IDF itself uses Astyle; this project
+expresses the documented layout in `.clang-format`.
+
+Ruff formats Python and sorts its imports. Both tools are locked in the uv `dev`
+group. Generated files and virtual environments are excluded through Git's file list.
+
+```powershell
+uv sync --locked --group dev
+uv run --group dev python tools/format_sources.py
+uv run --group dev python tools/format_sources.py --check
+```
+
+The project CI runs the same formatting check before QEMU regression tests.
+
 ## Run tests on the board
 
 Build after changing C code. Close the COM8 monitor before running pytest.

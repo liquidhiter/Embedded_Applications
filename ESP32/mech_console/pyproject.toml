@@ -7,7 +7,24 @@ dependencies = [
     "pyserial>=3.5,<4",
 ]
 
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+extend-exclude = ["build", "build-qemu", "managed_components", ".venv"]
+
+[tool.ruff.lint]
+select = ["I"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
 [dependency-groups]
+dev = [
+    "clang-format==19.1.7",
+    "ruff>=0.17.1",
+]
 test = [
     "pytest>=9.1.1",
     "pytest-embedded-idf>=2.9.3",

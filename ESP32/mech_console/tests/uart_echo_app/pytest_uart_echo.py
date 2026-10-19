@@ -9,7 +9,6 @@ from pytest_embedded_idf import IdfDut
 
 from tools.uart_echo_test import EchoFailure, exchange
 
-
 pytestmark = pytest.mark.hardware
 
 
@@ -20,15 +19,15 @@ def data_serial(dut: IdfDut, request):
     if console_port and data_port.casefold() == console_port.casefold():
         pytest.fail("The UART data port must differ from the ESP32 USB console port")
     dut.expect_exact("UART_ECHO_READY", timeout=15)
-    with serial.Serial(data_port, baudrate=115200, timeout=0.1, write_timeout=5,
-                       xonxoff=False, rtscts=False, dsrdtr=False) as connection:
+    with serial.Serial(
+        data_port, baudrate=115200, timeout=0.1, write_timeout=5, xonxoff=False, rtscts=False, dsrdtr=False
+    ) as connection:
         time.sleep(0.3)
         connection.reset_input_buffer()
         yield connection
 
 
-@pytest.mark.parametrize("length", [1, 255, 256, 257, 1024, 4096],
-                         ids=lambda length: f"echo-{length}-bytes")
+@pytest.mark.parametrize("length", [1, 255, 256, 257, 1024, 4096], ids=lambda length: f"echo-{length}-bytes")
 def test_uart_echo(data_serial, length, record_property):
     rng = random.Random(length)
     durations = []

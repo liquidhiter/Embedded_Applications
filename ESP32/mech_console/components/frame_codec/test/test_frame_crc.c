@@ -1,6 +1,8 @@
 #include <string.h>
-#include "frame_crc.h"
+
 #include "unity.h"
+
+#include "frame_crc.h"
 
 TEST_CASE("CRC32 matches the ISO-HDLC check vector", "[frame_crc]")
 {
@@ -37,17 +39,15 @@ TEST_CASE("CRC32 matches independent binary reference vectors", "[frame_crc]")
     /* Reference values generated with Python's zlib.crc32, not this implementation.
      * Columns represent all-zero, all-FF, and ascending modulo-256 byte patterns.
      */
-    static const struct { size_t length; uint32_t expected[3]; } vectors[] = {
-        {1, {0xD202EF8DU, 0xFF000000U, 0xD202EF8DU}},
-        {2, {0x41D912FFU, 0xFFFF0000U, 0x36DE2269U}},
-        {31, {0x6909ACB0U, 0x6CAB0B00U, 0x4D786D77U}},
-        {253, {0x181E4E5EU, 0x54760957U, 0xB367940EU}},
-        {254, {0x5EC98D30U, 0x0A5BB25EU, 0xF6052BBFU}},
-        {255, {0xF48516ACU, 0x73D92741U, 0xD32F9BA0U}},
-        {256, {0x0D968558U, 0xFEA8A821U, 0x29058C73U}},
-        {508, {0x0FBB6D54U, 0x4D3F5134U, 0x49F1A5EEU}},
-        {512, {0xB2AA7578U, 0xBD7BC39FU, 0x1C613576U}},
-        {536, {0x11E5C2A9U, 0x58F2D1F0U, 0x24678442U}},
+    static const struct {
+        size_t length;
+        uint32_t expected[3];
+    } vectors[] = {
+        {1, {0xD202EF8DU, 0xFF000000U, 0xD202EF8DU}},   {2, {0x41D912FFU, 0xFFFF0000U, 0x36DE2269U}},
+        {31, {0x6909ACB0U, 0x6CAB0B00U, 0x4D786D77U}},  {253, {0x181E4E5EU, 0x54760957U, 0xB367940EU}},
+        {254, {0x5EC98D30U, 0x0A5BB25EU, 0xF6052BBFU}}, {255, {0xF48516ACU, 0x73D92741U, 0xD32F9BA0U}},
+        {256, {0x0D968558U, 0xFEA8A821U, 0x29058C73U}}, {508, {0x0FBB6D54U, 0x4D3F5134U, 0x49F1A5EEU}},
+        {512, {0xB2AA7578U, 0xBD7BC39FU, 0x1C613576U}}, {536, {0x11E5C2A9U, 0x58F2D1F0U, 0x24678442U}},
     };
     uint8_t input[536];
     for (size_t k = 0; k < sizeof(vectors) / sizeof(vectors[0]); ++k) {

@@ -11,6 +11,7 @@
 
 #include "esp_err.h"
 #include "esp_log.h"
+
 #include "driver/uart.h"
 
 #include "app_uart.h"
@@ -40,12 +41,7 @@ esp_err_t app_uart_start(void)
     };
 
     /* Install UART driver */
-    ret = uart_driver_install(APP_UART_NUM,
-                              APP_UART_RX_BUF_SIZE,
-                              APP_UART_TX_BUF_SIZE,
-                              0,
-                              NULL,
-                              0);
+    ret = uart_driver_install(APP_UART_NUM, APP_UART_RX_BUF_SIZE, APP_UART_TX_BUF_SIZE, 0, NULL, 0);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to install UART driver: %s", esp_err_to_name(ret));
         return ret;
@@ -64,11 +60,7 @@ esp_err_t app_uart_start(void)
     }
 
     /* Configure UART pins */
-    ret = uart_set_pin(APP_UART_NUM,
-                       APP_UART_TX_PIN,
-                       APP_UART_RX_PIN,
-                       UART_PIN_NO_CHANGE,
-                       UART_PIN_NO_CHANGE);
+    ret = uart_set_pin(APP_UART_NUM, APP_UART_TX_PIN, APP_UART_RX_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to configure UART pins: %s", esp_err_to_name(ret));
         uart_driver_delete(APP_UART_NUM);
@@ -78,5 +70,4 @@ esp_err_t app_uart_start(void)
     uart_initialized = true;
 
     return ESP_OK;
-
 }

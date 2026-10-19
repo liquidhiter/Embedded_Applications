@@ -7,16 +7,13 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <string.h>
 
 #include "frame_codec.h"
 
-frame_codec_result_t frame_cobs_encode(const uint8_t *src,
-                                       size_t src_len,
-                                       uint8_t *dst,
-                                       size_t dst_capacity,
+frame_codec_result_t frame_cobs_encode(const uint8_t *src, size_t src_len, uint8_t *dst, size_t dst_capacity,
                                        size_t *dst_len)
 {
     size_t read_index;
@@ -93,10 +90,7 @@ frame_codec_result_t frame_cobs_encode(const uint8_t *src,
     return FRAME_CODEC_OK;
 }
 
-frame_codec_result_t frame_cobs_decode(const uint8_t *src,
-                                       size_t src_len,
-                                       uint8_t *dst,
-                                       size_t dst_capacity,
+frame_codec_result_t frame_cobs_decode(const uint8_t *src, size_t src_len, uint8_t *dst, size_t dst_capacity,
                                        size_t *dst_len)
 {
     size_t read_index;

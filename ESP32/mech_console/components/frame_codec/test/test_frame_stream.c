@@ -1,6 +1,8 @@
 #include <string.h>
-#include "frame_stream.h"
+
 #include "unity.h"
+
+#include "frame_stream.h"
 
 typedef struct {
     size_t count;
@@ -46,8 +48,7 @@ TEST_CASE("Stream preserves partial frames across every split", "[frame_stream]"
         start(&stream, &result);
         TEST_ASSERT_EQUAL_INT(FRAME_CODEC_OK, frame_stream_feed(&stream, input, split));
         TEST_ASSERT_EQUAL_UINT(split == sizeof(input) ? 1 : 0, result.count);
-        TEST_ASSERT_EQUAL_INT(FRAME_CODEC_OK,
-            frame_stream_feed(&stream, input + split, sizeof(input) - split));
+        TEST_ASSERT_EQUAL_INT(FRAME_CODEC_OK, frame_stream_feed(&stream, input + split, sizeof(input) - split));
         TEST_ASSERT_EQUAL_UINT(1, result.count);
         TEST_ASSERT_EQUAL_UINT(4, result.lengths[0]);
         TEST_ASSERT_EQUAL_MEMORY(input, result.frames[0], 4);
@@ -101,12 +102,10 @@ TEST_CASE("Stream accepts exactly the maximum frame length", "[frame_stream]")
     uint8_t input[FRAME_STREAM_MAX_ENCODED_SIZE + 1];
     memset(input, 0xAA, sizeof(input));
     input[FRAME_STREAM_MAX_ENCODED_SIZE] = 0;
-    TEST_ASSERT_EQUAL_INT(FRAME_CODEC_OK,
-        frame_stream_feed(&stream, input, FRAME_STREAM_MAX_ENCODED_SIZE));
+    TEST_ASSERT_EQUAL_INT(FRAME_CODEC_OK, frame_stream_feed(&stream, input, FRAME_STREAM_MAX_ENCODED_SIZE));
     TEST_ASSERT_EQUAL_UINT(0, result.count);
     TEST_ASSERT_FALSE(stream.discarding);
-    TEST_ASSERT_EQUAL_INT(FRAME_CODEC_OK,
-        frame_stream_feed(&stream, input + FRAME_STREAM_MAX_ENCODED_SIZE, 1));
+    TEST_ASSERT_EQUAL_INT(FRAME_CODEC_OK, frame_stream_feed(&stream, input + FRAME_STREAM_MAX_ENCODED_SIZE, 1));
     TEST_ASSERT_EQUAL_UINT(1, result.count);
     TEST_ASSERT_EQUAL_UINT(FRAME_STREAM_MAX_ENCODED_SIZE, result.lengths[0]);
     TEST_ASSERT_EQUAL_MEMORY(input, result.frames[0], FRAME_STREAM_MAX_ENCODED_SIZE);
