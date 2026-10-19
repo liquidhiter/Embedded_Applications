@@ -30,6 +30,8 @@ jobs:
         working-directory: ESP32/mech_console
     steps:
       - uses: actions/checkout@v4
+      - name: Trust the checked-out workspace in the container
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Install QEMU and Python test tools
         run: |
           . "$IDF_PATH/export.sh"
