@@ -7,12 +7,14 @@
 ```text
 mech_console/
 |-- components/
+|   |-- app_config/                 Shared task priorities and stack sizes
 |   |-- app_health/                 Health task and lifecycle Unity test
+|   |-- app_link/                   UART receive task, packet callbacks, and link tests
 |   |-- app_uart/                   UART driver setup and shared configuration
 |   `-- frame_codec/
 |       |-- frame_codec.c          COBS encoder and decoder
 |       |-- include/               Public codec interface
-|       `-- test/                  COBS, stream-framer, and CRC32 Unity cases
+|       `-- test/                  COBS, stream, CRC32, and packet Unity cases
 |-- main/main.c                    Application entry point
 |-- tests/frame_codec_app/
 |   |-- CMakeLists.txt             Isolated test firmware project
@@ -20,8 +22,9 @@ mech_console/
 |   |-- pytest_frame_codec.py      One pytest item per Unity case
 |   |-- pytest_frame_stream.py     Stream-framer pytest items
 |   |-- pytest_frame_crc.py        CRC32 pytest items
-|   |-- pytest_frame_packet.py     Packet encoding pytest items
+|   |-- pytest_frame_packet.py     Packet encoding and decoding pytest items
 |   |-- pytest_app_health.py       Health-task lifecycle pytest item
+|   |-- pytest_app_link.py         Link task tests with queued UART1 reads
 |   |-- sdkconfig.defaults         Physical-board USB console configuration
 |   `-- sdkconfig.defaults.qemu    QEMU UART console configuration
 |-- tests/uart_echo_app/

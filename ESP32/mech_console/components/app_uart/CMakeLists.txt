@@ -1,3 +1,5 @@
 idf_component_register(SRCS "app_uart.c"
-                       PRIV_REQUIRES esp_driver_uart
-                       INCLUDE_DIRS "include")
+                       INCLUDE_DIRS "include"
+                       # app_uart_config.h exposes UART driver types and constants.
+                       REQUIRES esp_common esp_driver_uart
+                       PRIV_REQUIRES log)

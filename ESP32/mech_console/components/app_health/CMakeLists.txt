@@ -1,3 +1,4 @@
 idf_component_register(SRCS "app_health.c"
-                       PRIV_REQUIRES esp_timer
-                       INCLUDE_DIRS "include")
+                       INCLUDE_DIRS "include"
+                       REQUIRES esp_common
+                       PRIV_REQUIRES app_config esp_timer freertos log)

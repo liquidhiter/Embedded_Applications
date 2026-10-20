@@ -17,9 +17,7 @@
 #include "freertos/task.h"
 
 #include "app_health.h"
-
-#define APP_HEALTH_TASK_STACK_SIZE (2048U)
-#define APP_HEALTH_TASK_PRIORITY (1U)
+#include "app_task_config.h"
 
 #define MICROSECONDS_IN_SECOND (1000000U)
 
