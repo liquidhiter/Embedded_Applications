@@ -3,6 +3,7 @@
 #include "unity.h"
 
 #include "frame_codec.h"
+#include "frame_crc.h"
 #include "frame_packet.h"
 
 /* Independent references: Python struct.pack('<BBHQIHH', ...) and zlib.crc32.
@@ -163,4 +164,167 @@ TEST_CASE("Packet encode ignores undeclared payload bytes", "[frame_packet]")
     TEST_ASSERT_EQUAL_INT(FRAME_CODEC_OK, frame_packet_encode(&packet, wire, sizeof(wire), &length));
     TEST_ASSERT_EQUAL_UINT(sizeof(golden_wire), length);
     TEST_ASSERT_EQUAL_MEMORY(golden_wire, wire, length);
+}
+
+static void assert_packet_fields(const frame_packet_t *expected, const frame_packet_t *actual)
+{
+    TEST_ASSERT_EQUAL_HEX8(expected->type, actual->type);
+    /* Unity's default ESP-IDF configuration does not enable 64-bit assertions. */
+    TEST_ASSERT_EQUAL_HEX32((uint32_t)expected->session_id, (uint32_t)actual->session_id);
+    TEST_ASSERT_EQUAL_HEX32((uint32_t)(expected->session_id >> 32), (uint32_t)(actual->session_id >> 32));
+    TEST_ASSERT_EQUAL_HEX32(expected->sequence, actual->sequence);
+    TEST_ASSERT_EQUAL_UINT16(expected->payload_length, actual->payload_length);
+    if (expected->payload_length != 0) {
+        TEST_ASSERT_EQUAL_MEMORY(expected->payload, actual->payload, expected->payload_length);
+    }
+}
+
+static void assert_decode_failure(const uint8_t *encoded, size_t length, frame_codec_result_t expected)
+{
+    frame_packet_t packet;
+    uint8_t original[sizeof(packet)];
+    memset(&packet, 0xA5, sizeof(packet));
+    memcpy(original, &packet, sizeof(packet));
+    TEST_ASSERT_EQUAL_INT(expected, frame_packet_decode(encoded, length, &packet));
+    TEST_ASSERT_EQUAL_MEMORY(original, &packet, sizeof(packet));
+}
+
+/* Recompute CRC for intentionally invalid headers so CRC cannot mask validation bugs. */
+static size_t encode_test_raw(uint8_t *raw, size_t length, uint8_t *encoded, size_t capacity)
+{
+    uint32_t crc = 0;
+    TEST_ASSERT_TRUE(length >= 4);
+    TEST_ASSERT_EQUAL_INT(FRAME_CODEC_OK, frame_crc32(raw, length - 4, &crc));
+    for (size_t i = 0; i < 4; ++i) {
+        raw[length - 4 + i] = (uint8_t)(crc >> (8 * i));
+    }
+    size_t encoded_length = 0;
+    TEST_ASSERT_EQUAL_INT(FRAME_CODEC_OK, frame_cobs_encode(raw, length, encoded, capacity, &encoded_length));
+    return encoded_length;
+}
+
+TEST_CASE("Packet decode matches independent wire references", "[frame_packet]")
+{
+    frame_packet_t packet;
+    frame_packet_t expected = example_packet();
+    TEST_ASSERT_EQUAL_INT(FRAME_CODEC_OK, frame_packet_decode(golden_wire, sizeof(golden_wire) - 1, &packet));
+    assert_packet_fields(&expected, &packet);
+    expected = (frame_packet_t){.type = 0x20};
+    TEST_ASSERT_EQUAL_INT(FRAME_CODEC_OK, frame_packet_decode(empty_wire, sizeof(empty_wire) - 1, &packet));
+    assert_packet_fields(&expected, &packet);
+}
+
+TEST_CASE("Packet decode rejects invalid arguments without mutation", "[frame_packet]")
+{
+    assert_decode_failure(NULL, 0, FRAME_CODEC_INVALID_ARG);
+    assert_decode_failure(NULL, 10, FRAME_CODEC_INVALID_ARG);
+    TEST_ASSERT_EQUAL_INT(FRAME_CODEC_INVALID_ARG, frame_packet_decode(golden_wire, sizeof(golden_wire) - 1, NULL));
+    assert_decode_failure(golden_wire, 0, FRAME_CODEC_MALFORMED);
+}
+
+TEST_CASE("Packet decode rejects malformed COBS and delimiters", "[frame_packet]")
+{
+    const uint8_t bad_code[] = {0};
+    const uint8_t short_block[] = {3, 0x11};
+    const uint8_t zero_data[] = {2, 0};
+    const uint8_t empty_raw[] = {1};
+    assert_decode_failure(bad_code, sizeof(bad_code), FRAME_CODEC_MALFORMED);
+    assert_decode_failure(short_block, sizeof(short_block), FRAME_CODEC_MALFORMED);
+    assert_decode_failure(zero_data, sizeof(zero_data), FRAME_CODEC_MALFORMED);
+    assert_decode_failure(empty_raw, sizeof(empty_raw), FRAME_CODEC_MALFORMED);
+    assert_decode_failure(golden_wire, sizeof(golden_wire), FRAME_CODEC_MALFORMED);
+}
+
+TEST_CASE("Packet decode rejects inconsistent and oversized lengths", "[frame_packet]")
+{
+    uint8_t raw[537] = {0};
+    uint8_t encoded[541];
+    /* Exercise every raw length below the minimum header plus CRC. */
+    for (size_t length = 0; length < 24; ++length) {
+        size_t encoded_length = 0;
+        TEST_ASSERT_EQUAL_INT(FRAME_CODEC_OK,
+                              frame_cobs_encode(raw, length, encoded, sizeof(encoded), &encoded_length));
+        assert_decode_failure(encoded, encoded_length, FRAME_CODEC_MALFORMED);
+    }
+    /* Header declares 3 bytes; shorter and longer actual packets have valid CRCs. */
+    raw[0] = 1;
+    raw[16] = 3;
+    const size_t lengths[] = {24, 26, 28, 536};
+    for (size_t i = 0; i < sizeof(lengths) / sizeof(lengths[0]); ++i) {
+        size_t length = encode_test_raw(raw, lengths[i], encoded, sizeof(encoded));
+        assert_decode_failure(encoded, length, FRAME_CODEC_MALFORMED);
+    }
+    const uint16_t declared[] = {513, UINT16_MAX};
+    for (size_t i = 0; i < sizeof(declared) / sizeof(declared[0]); ++i) {
+        memset(raw, 0, sizeof(raw));
+        raw[0] = 1;
+        raw[16] = (uint8_t)declared[i];
+        raw[17] = (uint8_t)(declared[i] >> 8);
+        size_t length = encode_test_raw(raw, sizeof(raw), encoded, sizeof(encoded));
+        assert_decode_failure(encoded, length, FRAME_CODEC_MALFORMED);
+        length = encode_test_raw(raw, 24, encoded, sizeof(encoded));
+        assert_decode_failure(encoded, length, FRAME_CODEC_MALFORMED);
+    }
+}
+
+TEST_CASE("Packet decode validates every reserved header byte", "[frame_packet]")
+{
+    const size_t offsets[] = {0, 2, 3, 18, 19};
+    for (size_t i = 0; i < sizeof(offsets) / sizeof(offsets[0]); ++i) {
+        uint8_t raw[24] = {1};
+        uint8_t encoded[26];
+        raw[offsets[i]] = offsets[i] == 0 ? 2 : 1;
+        size_t length = encode_test_raw(raw, sizeof(raw), encoded, sizeof(encoded));
+        assert_decode_failure(encoded, length, FRAME_CODEC_MALFORMED);
+    }
+}
+
+TEST_CASE("Packet decode rejects corruption across the CRC coverage", "[frame_packet]")
+{
+    uint8_t original[27];
+    size_t raw_length = 0;
+    TEST_ASSERT_EQUAL_INT(FRAME_CODEC_OK, frame_cobs_decode(golden_wire, sizeof(golden_wire) - 1, original,
+                                                            sizeof(original), &raw_length));
+    /* Mutate every bit, including the stored CRC, without recomputing it. */
+    for (size_t byte = 0; byte < raw_length; ++byte) {
+        for (unsigned bit = 0; bit < 8; ++bit) {
+            uint8_t raw[27], encoded[29];
+            memcpy(raw, original, sizeof(raw));
+            raw[byte] ^= (uint8_t)(1U << bit);
+            size_t length = 0;
+            TEST_ASSERT_EQUAL_INT(FRAME_CODEC_OK,
+                                  frame_cobs_encode(raw, sizeof(raw), encoded, sizeof(encoded), &length));
+            assert_decode_failure(encoded, length, FRAME_CODEC_MALFORMED);
+        }
+    }
+}
+
+TEST_CASE("Packet round trip covers all payload lengths and preserves input", "[frame_packet]")
+{
+    frame_packet_t expected = example_packet();
+    struct {
+        uint32_t before;
+        frame_packet_t packet;
+        uint32_t after;
+    } output;
+    uint8_t encoded[540], original[540];
+    for (size_t length = 0; length <= 512; ++length) {
+        expected.type = (uint8_t)length;
+        expected.session_id = length == 0 ? 0 : UINT64_MAX;
+        expected.sequence = length == 0 ? 0 : UINT32_MAX;
+        expected.payload_length = (uint16_t)length;
+        for (size_t i = 0; i < length; ++i) {
+            expected.payload[i] = (uint8_t)i;
+        }
+        size_t encoded_length = 0;
+        TEST_ASSERT_EQUAL_INT(FRAME_CODEC_OK,
+                              frame_packet_encode(&expected, encoded, sizeof(encoded), &encoded_length));
+        memcpy(original, encoded, encoded_length);
+        memset(&output, 0xA5, sizeof(output));
+        TEST_ASSERT_EQUAL_INT(FRAME_CODEC_OK, frame_packet_decode(encoded, encoded_length - 1, &output.packet));
+        assert_packet_fields(&expected, &output.packet);
+        TEST_ASSERT_EQUAL_HEX32(0xA5A5A5A5, output.before);
+        TEST_ASSERT_EQUAL_HEX32(0xA5A5A5A5, output.after);
+        TEST_ASSERT_EQUAL_MEMORY(original, encoded, encoded_length);
+    }
 }

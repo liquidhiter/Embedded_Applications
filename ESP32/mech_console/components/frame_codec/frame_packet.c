@@ -86,6 +86,82 @@ frame_codec_result_t frame_packet_encode(const frame_packet_t *packet, uint8_t *
     return FRAME_CODEC_OK;
 }
 
+frame_codec_result_t frame_packet_decode(const uint8_t *encoded, size_t encoded_length, frame_packet_t *packet)
+{
+    if (encoded == NULL || packet == NULL) {
+        return FRAME_CODEC_INVALID_ARG;
+    }
+
+    /* If encoded pointer is not NULL but length is zero, it's malformed */
+    if (encoded != NULL && encoded_length == 0) {
+        return FRAME_CODEC_MALFORMED;
+    }
+
+    /* Local buffer for the decoded raw frame: only commit to the packet if decoding is successful */
+    uint8_t raw[FRAME_PACKET_TOTAL_LEN];
+    size_t raw_length = 0;
+    frame_codec_result_t result;
+
+    /* Decode the COBS-encoded frame into the raw buffer */
+    result = frame_cobs_decode(encoded, encoded_length, raw, sizeof(raw), &raw_length);
+    if (result != FRAME_CODEC_OK) {
+        return FRAME_CODEC_MALFORMED;
+    }
+
+    /* Read the header only when the decoded raw buffer has at least 20 + 4 bytes (header + CRC) */
+    if (raw_length < FRAME_PACKET_HEADER_LEN + FRAME_PACKET_CRC32_LEN) {
+        /* frame_packet_decode is always called with a COBS-encoded complete frame,
+         * so having less than the minimum required length indicates a malformed frame
+         */
+        return FRAME_CODEC_MALFORMED;
+    }
+
+    /* At this point, we have a raw buffer with at least the header and CRC.
+     * We can safely read the header fields and validate the CRC.
+     */
+    uint32_t payload_length = read_u16_le(raw + FRAME_PACKET_HEADER_PAYLOAD_LENGTH_OFFSET);
+    /* Payload length sanity check */
+    if (payload_length > FRAME_PACKET_MAX_PAYLOAD_SIZE) {
+        return FRAME_CODEC_MALFORMED;
+    }
+
+    /* Validate that the raw buffer contains the full payload and CRC */
+    if (raw_length != FRAME_PACKET_HEADER_LEN + payload_length + FRAME_PACKET_CRC32_LEN) {
+        return FRAME_CODEC_MALFORMED;
+    }
+
+    /* Validate the header fields: version, flags and reserved */
+    uint8_t version = raw[FRAME_PACKET_HEADER_VERSION_OFFSET];
+    uint16_t flags = read_u16_le(raw + FRAME_PACKET_HEADER_FLAGS_OFFSET);
+    uint16_t reserved = read_u16_le(raw + FRAME_PACKET_HEADER_RESERVED_OFFSET);
+    if (version != FRAME_PACKET_VER || flags != 0 || reserved != 0) {
+        return FRAME_CODEC_MALFORMED;
+    }
+
+    /** @TODO: Check the type field later */
+
+    /* Validate the CRC32 of the packet */
+    uint32_t expected_crc = read_u32_le(raw + FRAME_PACKET_HEADER_LEN + payload_length);
+    uint32_t actual_crc;
+    result = frame_crc32(raw, FRAME_PACKET_HEADER_LEN + payload_length, &actual_crc);
+    if (result != FRAME_CODEC_OK) {
+        return result;
+    }
+
+    if (expected_crc != actual_crc) {
+        return FRAME_CODEC_MALFORMED;
+    }
+
+    /* Commit the decoded frame to the packet */
+    packet->type = raw[FRAME_PACKET_HEADER_TYPE_OFFSET];
+    packet->session_id = read_u64_le(raw + FRAME_PACKET_HEADER_SESSION_ID_OFFSET);
+    packet->sequence = read_u32_le(raw + FRAME_PACKET_HEADER_SEQUENCE_OFFSET);
+    packet->payload_length = payload_length;
+    memcpy(packet->payload, raw + FRAME_PACKET_HEADER_LEN, payload_length);
+
+    return FRAME_CODEC_OK;
+}
+
 /* Helper Functions Implementation */
 
 static void write_u16_le(uint8_t *dst, uint16_t value)
