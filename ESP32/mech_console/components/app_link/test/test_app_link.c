@@ -24,8 +24,25 @@ typedef struct {
 static QueueHandle_t input_queue;
 static QueueHandle_t packet_queue;
 static int callback_context;
+static uint8_t transmitted[540];
+static size_t transmitted_length;
+static unsigned write_calls;
+static int forced_write_result = -2;
 
 int __real_uart_read_bytes(uart_port_t port, void *buffer, uint32_t length, TickType_t wait);
+int __real_uart_write_bytes(uart_port_t port, const void *buffer, size_t length);
+
+int __wrap_uart_write_bytes(uart_port_t port, const void *buffer, size_t length)
+{
+    if (port != APP_UART_NUM) {
+        return __real_uart_write_bytes(port, buffer, length);
+    }
+    configASSERT(length <= sizeof(transmitted));
+    ++write_calls;
+    transmitted_length = length;
+    memcpy(transmitted, buffer, length);
+    return forced_write_result == -2 ? (int)length : forced_write_result;
+}
 
 /* This seam replaces the driver, not the receive task, framer, or packet codec. */
 int __wrap_uart_read_bytes(uart_port_t port, void *buffer, uint32_t length, TickType_t wait)
@@ -213,4 +230,51 @@ TEST_CASE("Link retries after a UART read failure", "[app_link]")
     send_bytes(wire, length, 256);
     expect_packet(&expected);
     expect_no_extra_packets();
+}
+
+TEST_CASE("Link send rejects unstarted and invalid packets", "[app_link]")
+{
+    frame_packet_t packet = make_packet(8, 3);
+    TEST_ASSERT_EQUAL_INT(ESP_ERR_INVALID_STATE, app_link_send(&packet));
+    start_link();
+    TEST_ASSERT_EQUAL_INT(ESP_ERR_INVALID_ARG, app_link_send(NULL));
+    packet.payload_length = 513;
+    TEST_ASSERT_EQUAL_INT(ESP_ERR_INVALID_ARG, app_link_send(&packet));
+    TEST_ASSERT_EQUAL_UINT(0, write_calls);
+}
+
+TEST_CASE("Link send submits complete maximum frames in one write", "[app_link]")
+{
+    start_link();
+    const uint16_t lengths[] = {0, 3, 512};
+    for (size_t i = 0; i < sizeof(lengths) / sizeof(lengths[0]); ++i) {
+        frame_packet_t packet = make_packet(9, lengths[i]);
+        uint8_t expected[540], original[sizeof(packet)];
+        size_t length = encode(&packet, expected);
+        memcpy(original, &packet, sizeof(packet));
+        unsigned calls_before = write_calls;
+        TEST_ASSERT_EQUAL_INT(ESP_OK, app_link_send(&packet));
+        TEST_ASSERT_EQUAL_UINT(calls_before + 1, write_calls);
+        TEST_ASSERT_EQUAL_UINT(length, transmitted_length);
+        TEST_ASSERT_EQUAL_MEMORY(expected, transmitted, length);
+        TEST_ASSERT_EQUAL_MEMORY(original, &packet, sizeof(packet));
+        if (lengths[i] == 512) {
+            TEST_ASSERT_EQUAL_UINT(540, length);
+        }
+    }
+}
+
+TEST_CASE("Link send reports failed and incomplete driver writes", "[app_link]")
+{
+    start_link();
+    frame_packet_t packet = make_packet(10, 3);
+    const int failures[] = {-1, 0, 1};
+    for (size_t i = 0; i < sizeof(failures) / sizeof(failures[0]); ++i) {
+        forced_write_result = failures[i];
+        unsigned calls_before = write_calls;
+        TEST_ASSERT_EQUAL_INT(ESP_FAIL, app_link_send(&packet));
+        TEST_ASSERT_EQUAL_UINT(calls_before + 1, write_calls);
+    }
+    forced_write_result = -2;
+    TEST_ASSERT_EQUAL_INT(ESP_OK, app_link_send(&packet));
 }

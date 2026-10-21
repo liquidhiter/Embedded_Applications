@@ -2,7 +2,7 @@
  * @file    app_link.h
  * @author  maxin
  * @date    2026-10-20
- * @brief   Application receive-link interface.
+ * @brief   Application packet-link interface.
  *
  * SPDX-License-Identifier: MIT
  */
@@ -41,3 +41,25 @@ typedef void (*app_link_packet_callback_t)(const frame_packet_t *packet, void *c
  *         or ESP_ERR_NO_MEM if task creation fails. Failed starts may be retried.
  */
 esp_err_t app_link_start(app_link_packet_callback_t callback, void *context);
+
+/**
+ * @brief Send a frame packet over the application link.
+ *
+ * The link must be started with app_link_start() before calling this function.
+ * Task-context only; concurrent send callers are supported after startup.
+ * The caller must keep packet valid and unchanged until this function returns.
+ * Each frame is submitted in one driver write, serialized by the UART TX mutex.
+ * Other writers on this UART must also submit complete frames in one write.
+ *
+ * With the configured TX ring buffer, success means the complete frame has been
+ * copied to the driver, not that transmission or reception has completed. Packet
+ * storage may be reused after return. This call has no bounded timeout: driver
+ * lock/buffer waits can block indefinitely. Use uart_wait_tx_done() separately
+ * when local transmission completion is required.
+ *
+ * @param packet Pointer to the frame packet to send.
+ * @return ESP_OK on success, ESP_ERR_INVALID_STATE if the link is not started,
+ *         ESP_ERR_INVALID_ARG for a NULL packet or oversized payload, or ESP_FAIL
+ *         for an encoding or UART write failure.
+ */
+esp_err_t app_link_send(const frame_packet_t *packet);

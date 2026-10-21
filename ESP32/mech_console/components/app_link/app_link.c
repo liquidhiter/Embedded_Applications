@@ -2,7 +2,7 @@
  * @file    app_link.c
  * @author  maxin
  * @date    2026-10-20
- * @brief   UART receive task and validated packet delivery.
+ * @brief   UART packet reception and complete-frame submission.
  *
  * SPDX-License-Identifier: MIT
  */
@@ -18,6 +18,7 @@
 #include "app_link.h"
 #include "app_task_config.h"
 #include "app_uart_config.h"
+#include "frame_common.h"
 #include "frame_packet.h"
 #include "frame_stream.h"
 
@@ -94,14 +95,45 @@ esp_err_t app_link_start(app_link_packet_callback_t callback, void *context)
     }
 
     /* Create the receive task for handling incoming UART data. */
+    /* A newly scheduled receive callback may immediately call app_link_send(). */
+    app_link_started = true;
     BaseType_t task_result;
     task_result = xTaskCreate(receive_task, "app_link_receive_task", APP_LINK_RECEIVE_TASK_STACK_SIZE, NULL,
                               APP_LINK_RECEIVE_TASK_PRIORITY, NULL);
     if (task_result != pdPASS) {
+        app_link_started = false;
         return ESP_ERR_NO_MEM;
     }
 
-    app_link_started = true;
+    return ESP_OK;
+}
+
+esp_err_t app_link_send(const frame_packet_t *packet)
+{
+    if (!app_link_started) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    if (packet == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    frame_codec_result_t result;
+    /* +1 to count the delimiter byte 0x00 */
+    uint8_t encoded[FRAME_STREAM_MAX_ENCODED_SIZE + 1];
+    size_t output_length;
+    result = frame_packet_encode(packet, encoded, sizeof(encoded), &output_length);
+    if (result != FRAME_CODEC_OK) {
+        return result == FRAME_CODEC_INVALID_ARG ? ESP_ERR_INVALID_ARG : ESP_FAIL;
+    }
+
+    /* The UART driver serializes each complete write with its internal TX mutex.
+     * Submit the whole frame once; splitting writes could interleave frames.
+     */
+    int written = uart_write_bytes(APP_UART_NUM, encoded, output_length);
+    if (written < 0 || (size_t)written != output_length) {
+        return ESP_FAIL;
+    }
 
     return ESP_OK;
 }

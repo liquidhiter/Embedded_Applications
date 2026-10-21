@@ -9,7 +9,7 @@ mech_console/
 |-- components/
 |   |-- app_config/                 Shared task priorities and stack sizes
 |   |-- app_health/                 Health task and lifecycle Unity test
-|   |-- app_link/                   UART receive task, packet callbacks, and link tests
+|   |-- app_link/                   Packet receive/send APIs, callbacks, and link tests
 |   |-- app_uart/                   UART driver setup and shared configuration
 |   `-- frame_codec/
 |       |-- frame_codec.c          COBS encoder and decoder
@@ -24,7 +24,7 @@ mech_console/
 |   |-- pytest_frame_crc.py        CRC32 pytest items
 |   |-- pytest_frame_packet.py     Packet encoding and decoding pytest items
 |   |-- pytest_app_health.py       Health-task lifecycle pytest item
-|   |-- pytest_app_link.py         Link task tests with queued UART1 reads
+|   |-- pytest_app_link.py         Link receive/send tests with wrapped UART1 I/O
 |   |-- sdkconfig.defaults         Physical-board USB console configuration
 |   `-- sdkconfig.defaults.qemu    QEMU UART console configuration
 |-- tests/uart_echo_app/
@@ -104,6 +104,23 @@ Restore the application after testing:
 idf.py -p COM8 flash
 ```
 
+## Run sustained UART stress tests
+
+After building the UART link test app, enable the two optional stress profiles:
+
+```powershell
+uv run --group test pytest tests/uart_link_app -m stress --uart-stress --uart-stress-frames 1000 --embedded-services esp,idf --target esp32c3 --port COM8 --uart-data-port COM10 --app-path tests/uart_link_app --build-dir build -v -s
+```
+
+Python writes and reads concurrently. The full-duplex profile sends maximum
+payloads continuously; the recovery profile interleaves valid frames, bad CRCs
+and oversized frames. Exact reply comparison checks corruption, missing,
+duplicate and reordered packets. Metrics are host-observed payload and wire
+bytes per second, excluding flashing and startup. At 115200 baud with 8N1, each
+direction has a theoretical wire ceiling of 11520 bytes/s. These tests do not
+measure concurrent ESP32 send callers or prove indefinite operation. Restore
+the main firmware with `idf.py -p COM8 flash` afterward.
+
 ## Run tests in QEMU
 
 Install Espressif's emulator, then reopen an ESP-IDF terminal so its executable
@@ -162,7 +179,7 @@ uv run python tools/uart_echo_test.py --port COM10
 Use the same CH340 wiring and close applications using COM8 or COM10. This app
 uses the real UART driver and app_link receive task, without the QEMU UART read
 wrapper. Python builds frames independently using struct, zlib, and COBS. The
-test-only callback re-encodes valid packets and returns them through UART1.
+test-only callback returns valid packets through the production app_link_send API.
 
 ```powershell
 idf.py -C tests/uart_link_app -DIDF_TARGET=esp32c3 build

@@ -15,22 +15,6 @@
 
 #include "frame_common.h"
 
-/*! @brief Maximum encoded size for a frame in the stream.
- *
- * Header       20 bytes
- * Payload     512 bytes
- * CRC32         4 bytes
- * ─────────────────────
- * Total       536 bytes
- * ─────────────────────
- *
- * COBS: maximum encoded capacity is 536 + 536 / 254 + 1 = 539 bytes
- *
- * Temporary calculation for maximum encoded size, which will be automatically deduced
- * from the actual frame structure later.
- */
-#define FRAME_STREAM_MAX_ENCODED_SIZE (FRAME_PACKET_TOTAL_LEN + FRAME_PACKET_TOTAL_LEN / 254 + 1)
-
 /**
  * @brief Callback function type for handling encoded frames in the stream.
  *

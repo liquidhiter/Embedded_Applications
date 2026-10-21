@@ -1,6 +1,6 @@
-"""Exercise the real link task with queued UART1 reads on target or QEMU.
+"""Exercise link reception and transmission with wrapped UART1 I/O on target or QEMU.
 
-The test image wraps uart_read_bytes for UART1 only; this is not a physical
+The test image wraps UART read/write calls for UART1 only; this is not a physical
 UART test. A fresh boot per pytest item isolates the link's one-start lifecycle.
 """
 
@@ -17,6 +17,9 @@ from pytest_embedded_idf import IdfDut
         pytest.param("Link drops invalid packets and resumes at the next frame", id="link-malformed"),
         pytest.param("Link discards oversized frames then delivers a maximum packet", id="link-overflow"),
         pytest.param("Link retries after a UART read failure", id="link-read-error"),
+        pytest.param("Link send rejects unstarted and invalid packets", id="link-send-arguments"),
+        pytest.param("Link send submits complete maximum frames in one write", id="link-send-frames"),
+        pytest.param("Link send reports failed and incomplete driver writes", id="link-send-errors"),
     ],
 )
 def test_app_link(dut: IdfDut, case_name: str) -> None:

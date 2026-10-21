@@ -5,6 +5,7 @@ COM8 is used for firmware/console; COM10 carries binary protocol traffic.
 """
 
 import struct
+import threading
 import time
 import zlib
 
@@ -118,3 +119,81 @@ def test_uart_link(data_serial, scenario: str) -> None:
         }[scenario]
         send(data_serial, prefix + good)
     expect_reply(data_serial, expected)
+
+
+@pytest.mark.stress
+@pytest.mark.parametrize("profile", ["full-duplex", "recovery"])
+def test_uart_link_stress(data_serial, request, record_property, profile: str) -> None:
+    count = request.config.getoption("uart_stress_frames")
+    assert 1 <= count <= 10000, "--uart-stress-frames must be in 1..10000"
+    inputs, replies = [], []
+    payload_bytes = 0
+    for sequence in range(count):
+        length = 64 if profile == "recovery" and sequence % 5 == 0 else 512
+        # Alternate zero, nonzero and mixed payloads; every valid frame has a unique sequence.
+        payload = [b"\x00" * length, b"\xff" * length, (bytes(range(256)) * 2)[:length]][sequence % 3]
+        if profile == "recovery":
+            if sequence % 17 == 0:
+                inputs.append(make_frame(b"bad", sequence, bad_crc=True))
+            if sequence % 50 == 0:
+                inputs.append(b"\x01" * 600 + b"\x00")
+        frame = make_frame(payload, sequence)
+        inputs.append(frame)
+        replies.append(frame)
+        payload_bytes += length
+    outgoing, expected = b"".join(inputs), b"".join(replies)
+    received = bytearray()
+    writer_errors = []
+    stop = threading.Event()
+
+    def write_stream():
+        try:
+            offset = 0
+            # No deliberate pacing: feed the adapter while the main thread drains replies.
+            while offset < len(outgoing) and not stop.is_set():
+                written = data_serial.write(outgoing[offset : offset + 4096])
+                if written is None or written <= 0:
+                    raise RuntimeError("UART writer made no progress")
+                offset += written
+            if not stop.is_set():
+                data_serial.flush()
+        except Exception as error:
+            writer_errors.append(error)
+
+    started = time.monotonic()
+    # 8N1 at 115200 baud: 10 bits per byte, with headroom for USB and OS scheduling.
+    deadline = started + max(len(outgoing), len(expected)) * 10 / 115200 * 3 + 10
+    writer = threading.Thread(target=write_stream, name="uart-stress-writer", daemon=True)
+    writer.start()
+    try:
+        while len(received) < len(expected) and time.monotonic() < deadline:
+            received.extend(data_serial.read(min(4096, len(expected) - len(received))))
+            if writer_errors:
+                break
+    finally:
+        stop.set()
+        writer.join(timeout=4)
+        if writer.is_alive():
+            data_serial.cancel_write()
+            writer.join(timeout=4)
+        assert not writer.is_alive(), "UART writer did not stop"
+    elapsed = time.monotonic() - started
+    assert not writer_errors, f"UART writer failed: {writer_errors}"
+    assert len(received) == len(expected), (
+        f"Missing replies: expected={len(expected)} bytes, received={len(received)}, elapsed={elapsed:.3f}s"
+    )
+    mismatch = next((i for i, (actual, wanted) in enumerate(zip(received, expected)) if actual != wanted), None)
+    assert mismatch is None, (
+        f"Reply stream differs at byte {mismatch}: possible corruption, loss, duplication or reordering"
+    )
+    expect_reply(data_serial, b"")
+    record_property("frames", count)
+    record_property("tx_wire_bytes", len(outgoing))
+    record_property("rx_wire_bytes", len(received))
+    record_property("elapsed_s", elapsed)
+    record_property("payload_bytes_per_s", payload_bytes / elapsed)
+    record_property("rx_wire_bytes_per_s", len(received) / elapsed)
+    print(
+        f"\nUART stress {profile}: frames={count}, elapsed={elapsed:.3f}s, "
+        f"RX wire={len(received) / elapsed:.1f} B/s, payload={payload_bytes / elapsed:.1f} B/s"
+    )
