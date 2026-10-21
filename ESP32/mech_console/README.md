@@ -29,8 +29,11 @@ mech_console/
 |   `-- sdkconfig.defaults.qemu    QEMU UART console configuration
 |-- tests/uart_echo_app/
 |   |-- main/test_uart_echo.c      Dedicated UART echo firmware
-|   |-- conftest.py                Physical data-port option and opt-in guard
 |   `-- pytest_uart_echo.py        Six binary echo pytest cases
+|-- tests/uart_link_app/
+|   |-- main/test_uart_link.c      Real UART link with a test-only packet responder
+|   `-- pytest_uart_link.py        Eight physical protocol and recovery cases
+|-- tests/conftest.py              Shared physical data-port option and opt-in guard
 |-- tools/uart_echo_test.py         Serial echo validation
 |-- tools/run_qemu_tests.py         Discover, build, and run project QEMU tests
 |-- CMakeLists.txt                  Application build definition
@@ -152,4 +155,26 @@ The standalone echo tool remains available after flashing the echo test app:
 
 ```powershell
 uv run python tools/uart_echo_test.py --port COM10
+```
+
+## Run the physical UART link test
+
+Use the same CH340 wiring and close applications using COM8 or COM10. This app
+uses the real UART driver and app_link receive task, without the QEMU UART read
+wrapper. Python builds frames independently using struct, zlib, and COBS. The
+test-only callback re-encodes valid packets and returns them through UART1.
+
+```powershell
+idf.py -C tests/uart_link_app -DIDF_TARGET=esp32c3 build
+uv sync --locked --group test
+uv run --group test pytest tests/uart_link_app --embedded-services esp,idf --target esp32c3 --port COM8 --uart-data-port COM10 --app-path tests/uart_link_app --build-dir build -v
+```
+
+Cases cover empty, binary and maximum payloads, fragmented transmission, multiple
+frames, invalid CRC, malformed COBS and recovery after oversized input. Host write
+boundaries do not guarantee the same boundaries in UART reads. This app requires
+`--uart-data-port` and has no QEMU configuration. Restore the main firmware afterward:
+
+```powershell
+idf.py -p COM8 flash
 ```
