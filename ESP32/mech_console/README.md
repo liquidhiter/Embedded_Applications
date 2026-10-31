@@ -10,7 +10,10 @@ mech_console/
 |   |-- app_config/                 Shared task priorities and stack sizes
 |   |-- app_health/                 Health task and lifecycle Unity test
 |   |-- app_link/                   Packet receive/send APIs, callbacks, and link tests
+|   |-- app_protocol/               GET_STATUS dispatch, response layout, and Unity cases
+|   |-- app_sys_info/               Shared uptime and heap statistics
 |   |-- app_uart/                   UART driver setup and shared configuration
+|   |-- app_utils/                  Shared little-endian byte access helpers
 |   `-- frame_codec/
 |       |-- frame_codec.c          COBS encoder and decoder
 |       |-- include/               Public codec interface
@@ -25,6 +28,7 @@ mech_console/
 |   |-- pytest_frame_packet.py     Packet encoding and decoding pytest items
 |   |-- pytest_app_health.py       Health-task lifecycle pytest item
 |   |-- pytest_app_link.py         Link receive/send tests with wrapped UART1 I/O
+|   |-- pytest_app_protocol.py     Command dispatch and status response pytest items
 |   |-- sdkconfig.defaults         Physical-board USB console configuration
 |   `-- sdkconfig.defaults.qemu    QEMU UART console configuration
 |-- tests/uart_echo_app/
@@ -96,6 +100,8 @@ uv run --group test pytest tests/frame_codec_app --embedded-services esp,idf --t
 ```
 
 Append `-k decode` to select decoder cases, or `-k decode-zero-data` for one case.
+Append `-k app_protocol` to run the six command-dispatch cases. These execute on
+the target using deterministic status values and intercepted response submission.
 Append `--junitxml=test-results/codec.xml` to save a report.
 
 Restore the application after testing:

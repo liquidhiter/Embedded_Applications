@@ -1,3 +1,5 @@
 # Local editor configuration outside individual projects
 /ESP32/.vscode/
 /ESP32/.clangd
+# Accidental parent-directory CMake builds are generated artifacts.
+/ESP32/build/

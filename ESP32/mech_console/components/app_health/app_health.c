@@ -11,15 +11,15 @@
 
 #include "esp_err.h"
 #include "esp_log.h"
-#include "esp_timer.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
 #include "app_health.h"
+#include "app_sys_info.h"
 #include "app_task_config.h"
 
-#define MICROSECONDS_IN_SECOND (1000000U)
+#define MILLISECONDS_IN_SECOND (1000U)
 
 #define APP_HEALTH_LOG_INTERVAL_MS (1000U) /* 1 second */
 
@@ -52,26 +52,6 @@ static void app_health_task(void *pvParameters);
  */
 static void handle_app_health_stop_request(void);
 
-/** @brief  Get the current execution time in seconds */
-static inline uint64_t _get_current_exec_time(void)
-{
-    uint64_t time_us = esp_timer_get_time();
-    /* Convert microseconds to seconds */
-    return time_us / MICROSECONDS_IN_SECOND;
-}
-
-/** @brief Get the current free heap size */
-static inline size_t _get_current_free_heap(void)
-{
-    return xPortGetFreeHeapSize();
-}
-
-/** @brief Get the minimum ever free heap size */
-static inline size_t _get_minimum_ever_free_heap(void)
-{
-    return xPortGetMinimumEverFreeHeapSize();
-}
-
 static inline void _log_app_health_status(void)
 {
     /** @TODO: What if the ISR preempts this function?
@@ -80,9 +60,9 @@ static inline void _log_app_health_status(void)
      *  ISR preemption are generally acceptable.
      */
     /* Get the current time */
-    uint64_t exec_time = _get_current_exec_time();
-    size_t current_free_heap = _get_current_free_heap();
-    size_t minimum_ever_free_heap = _get_minimum_ever_free_heap();
+    uint64_t exec_time = app_sys_get_uptime_ms() / MILLISECONDS_IN_SECOND;
+    size_t current_free_heap = app_sys_get_free_heap();
+    size_t minimum_ever_free_heap = app_sys_get_min_free_heap();
 
     ESP_LOGI(TAG, "Execution Time: %llu s, Current Free Heap: %u bytes, Minimum Ever Free Heap: %u bytes", exec_time,
              current_free_heap, minimum_ever_free_heap);
