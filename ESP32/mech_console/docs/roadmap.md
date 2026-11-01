@@ -19,12 +19,14 @@ The full specification remains outside this repository.
 - USB console, chip/version information and periodic heap/uptime logging.
 - UART1 packet receive/send, COBS, streaming framing, CRC32 and packet validation.
 - Four-entry command queue and worker, with GET_STATUS end-to-end.
+- Independent HELLO/ACK helper: validation, pending-session creation and repeatable
+  ACKs. It is not yet connected to production UART command routing.
 - RGB initialization, synchronous color setting and dim-green startup indication;
   shared board constants use the `APP_BOARD_RGB_*` prefix.
 - Component tests on QEMU and the board; physical UART tests and CI.
 
-Latest local regression (2026-11-01): 66 component cases passed on QEMU, with
-the physical RGB case skipped; 67 passed on the board, including real RMT
+Latest local regression (2026-11-01): 75 component cases passed on QEMU, with
+the physical RGB case skipped; 76 passed on the board, including real RMT
 transmission; and 17 production-firmware command/status cases passed.
 RGB color order still needs visual confirmation; driver success does not measure light output.
 The earlier 115200-baud stress results used dedicated link-test firmware;
@@ -32,7 +34,8 @@ they do not establish mixed-load or 921600-baud performance.
 
 ## Next
 
-1. Add handshake, session validation/recovery and error counters.
+1. Add CONFIRM/READY, then connect the handshake and session checks to UART routing;
+   add handshake timeouts, recovery and error counters.
 2. Add packet pools, credit and a dedicated TX scheduler.
 3. Add END reconciliation and run the planned throughput matrix.
 

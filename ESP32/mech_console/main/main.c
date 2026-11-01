@@ -20,6 +20,7 @@
 #include "app_link.h"
 #include "app_protocol.h"
 #include "app_rgb.h"
+#include "app_session.h"
 #include "app_uart.h"
 #include "frame_packet.h"
 
@@ -62,8 +63,6 @@ static void on_packet(const frame_packet_t *packet, void *context)
 
 void app_main(void)
 {
-    ESP_LOGI(TAG, "Hello world!\n");
-
     /* Print chip information */
     print_chip_info();
 
