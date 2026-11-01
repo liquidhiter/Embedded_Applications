@@ -7,6 +7,7 @@
 ```text
 mech_console/
 |-- components/
+|   |-- app_command/                Bounded request queue and command worker task
 |   |-- app_config/                 Shared task priorities and stack sizes
 |   |-- app_health/                 Health task and lifecycle Unity test
 |   |-- app_link/                   Packet receive/send APIs, callbacks, and link tests
@@ -20,6 +21,7 @@ mech_console/
 |       `-- test/                  COBS, stream, CRC32, and packet Unity cases
 |-- main/main.c                    Application entry point
 |-- tests/frame_codec_app/
+|   |-- pytest_app_command.py      Queue ownership, FIFO, overload, and startup faults
 |   |-- CMakeLists.txt             Isolated test firmware project
 |   |-- main/test_main.c           Unity test menu
 |   |-- pytest_frame_codec.py      One pytest item per Unity case
@@ -103,6 +105,8 @@ uv run --group test pytest tests/frame_codec_app --embedded-services esp,idf --t
 Append `-k decode` to select decoder cases, or `-k decode-zero-data` for one case.
 Append `-k app_protocol` to run the six command-dispatch cases. These execute on
 the target using deterministic status values and intercepted response submission.
+Append `-k app_command` for the six worker-queue cases. These use real FreeRTOS
+queues/tasks with gated handlers and injected startup allocation failures.
 Append `--junitxml=test-results/codec.xml` to save a report.
 
 Restore the application after testing:

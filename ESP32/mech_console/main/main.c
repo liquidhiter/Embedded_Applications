@@ -1,7 +1,10 @@
-/*
- * SPDX-FileCopyrightText: 2010-2022 Espressif Systems (Shanghai) CO LTD
+/**
+ * @file    main.c
+ * @author  maxin
+ * @date    2026-11-01
+ * @brief   Main application entry point.
  *
- * SPDX-License-Identifier: CC0-1.0
+ * SPDX-License-Identifier: MIT
  */
 
 #include <inttypes.h>
@@ -12,6 +15,7 @@
 #include "esp_system.h"
 #include "sdkconfig.h"
 
+#include "app_command.h"
 #include "app_health.h"
 #include "app_link.h"
 #include "app_protocol.h"
@@ -49,13 +53,9 @@ static void on_packet(const frame_packet_t *packet, void *context)
 {
     (void)context;
 
-    esp_err_t err = app_protocol_handle_packet(packet);
+    esp_err_t err = app_command_submit(packet);
     if (err != ESP_OK) {
-        if (err == ESP_ERR_NOT_SUPPORTED || err == ESP_ERR_INVALID_ARG) {
-            ESP_LOGW(TAG, "Rejected packet: %s", esp_err_to_name(err));
-        } else {
-            ESP_LOGE(TAG, "Failed to handle packet: %s", esp_err_to_name(err));
-        }
+        ESP_LOGW(TAG, "Failed to submit packet to app command module: %s", esp_err_to_name(err));
     }
 }
 
@@ -75,6 +75,12 @@ void app_main(void)
     err = app_uart_start();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to start app UART: %s", esp_err_to_name(err));
+        return;
+    }
+
+    err = app_command_start();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to start app command module: %s", esp_err_to_name(err));
         return;
     }
 
