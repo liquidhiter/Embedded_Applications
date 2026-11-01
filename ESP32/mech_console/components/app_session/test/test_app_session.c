@@ -64,6 +64,51 @@ static void expect_error(esp_err_t expected)
     TEST_ASSERT_EQUAL_UINT(calls, source.calls);
 }
 
+static void set_confirm(void)
+{
+    request = (frame_packet_t){.type = 0x03, .session_id = SESSION_ID, .payload_length = 8};
+    const uint8_t nonce[] = {0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11};
+    memcpy(request.payload, nonce, sizeof(nonce));
+}
+
+static void prepare_confirm(void)
+{
+    prepare();
+    TEST_ASSERT_EQUAL(ESP_OK, app_session_handle_hello(&session, &request, &response));
+    set_confirm();
+    memset(&response, 0xA5, sizeof(response));
+}
+
+static void expect_confirm_error(esp_err_t expected)
+{
+    uint8_t before[sizeof(session)];
+    memcpy(before, &session, sizeof(session));
+    memcpy(request_before, &request, sizeof(request));
+    memcpy(response_before, &response, sizeof(response));
+    unsigned calls = source.calls;
+    TEST_ASSERT_EQUAL(expected, app_session_handle_confirm(&session, &request, &response));
+    TEST_ASSERT_EQUAL_MEMORY(before, &session, sizeof(session));
+    TEST_ASSERT_EQUAL_MEMORY(request_before, &request, sizeof(request));
+    TEST_ASSERT_EQUAL_MEMORY(response_before, &response, sizeof(response));
+    TEST_ASSERT_EQUAL_UINT(calls, source.calls);
+}
+
+static void expect_ready(void)
+{
+    TEST_ASSERT_EQUAL_HEX8(0x04, response.type);
+    TEST_ASSERT_TRUE(response.session_id == SESSION_ID);
+    TEST_ASSERT_EQUAL_UINT32(0, response.sequence);
+    TEST_ASSERT_EQUAL_UINT16(0, response.payload_length);
+    /* Independent golden wire bytes from Python struct/zlib, including CRC/COBS. */
+    const uint8_t expected[] = {0x03, 0x01, 0x04, 0x01, 0x09, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88,
+                                0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x05, 0xAA, 0x5A, 0xF4, 0x94, 0x00};
+    uint8_t wire[sizeof(expected)];
+    size_t length = 0;
+    TEST_ASSERT_EQUAL(FRAME_CODEC_OK, frame_packet_encode(&response, wire, sizeof(wire), &length));
+    TEST_ASSERT_EQUAL_UINT(sizeof(expected), length);
+    TEST_ASSERT_EQUAL_MEMORY(expected, wire, sizeof(expected));
+}
+
 TEST_CASE("Session init validates arguments and preserves failed output", "[app_session]")
 {
     memset(&session, 0xA5, sizeof(session));
@@ -287,4 +332,146 @@ TEST_CASE("Session instances keep independent IDs and callback contexts", "[app_
     TEST_ASSERT_EQUAL(ESP_OK, app_session_handle_hello(&no_context, &request, &response));
     TEST_ASSERT_EQUAL_PTR(NULL, no_context.context);
     TEST_ASSERT_EQUAL_UINT(1, null_context_calls);
+}
+
+TEST_CASE("Session CONFIRM rejects null arguments without side effects", "[app_session]")
+{
+    prepare_confirm();
+    uint8_t before[sizeof(session)];
+    memcpy(before, &session, sizeof(session));
+    memcpy(request_before, &request, sizeof(request));
+    memcpy(response_before, &response, sizeof(response));
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, app_session_handle_confirm(NULL, &request, &response));
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, app_session_handle_confirm(&session, NULL, &response));
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, app_session_handle_confirm(&session, &request, NULL));
+    TEST_ASSERT_EQUAL_MEMORY(before, &session, sizeof(session));
+    TEST_ASSERT_EQUAL_MEMORY(request_before, &request, sizeof(request));
+    TEST_ASSERT_EQUAL_MEMORY(response_before, &response, sizeof(response));
+    TEST_ASSERT_EQUAL_UINT(1, source.calls);
+}
+
+TEST_CASE("Session CONFIRM activates and returns exact READY wire bytes", "[app_session]")
+{
+    prepare_confirm();
+    app_session_t before = session;
+    memcpy(request_before, &request, sizeof(request));
+    TEST_ASSERT_EQUAL(ESP_OK, app_session_handle_confirm(&session, &request, &response));
+    expect_ready();
+    TEST_ASSERT_EQUAL(APP_SESSION_ACTIVE, session.state);
+    TEST_ASSERT_TRUE(session.session_id == before.session_id);
+    TEST_ASSERT_TRUE(session.host_nonce == before.host_nonce);
+    TEST_ASSERT_TRUE(session.device_boot_id == before.device_boot_id);
+    TEST_ASSERT_EQUAL_UINT16(before.accepted_window, session.accepted_window);
+    TEST_ASSERT_EQUAL_UINT16(before.max_payload, session.max_payload);
+    TEST_ASSERT_TRUE(session.generate_id == before.generate_id);
+    TEST_ASSERT_EQUAL_PTR(before.context, session.context);
+    TEST_ASSERT_EQUAL_UINT(1, source.calls);
+    TEST_ASSERT_EQUAL_MEMORY(request_before, &request, sizeof(request));
+}
+
+TEST_CASE("Session CONFIRM validates headers before state or payload", "[app_session]")
+{
+    for (unsigned stage = 0; stage < 3; ++stage) {
+        if (stage == 0) {
+            prepare();
+        } else {
+            prepare_confirm();
+            if (stage == 2) {
+                TEST_ASSERT_EQUAL(ESP_OK, app_session_handle_confirm(&session, &request, &response));
+            }
+        }
+        const uint8_t types[] = {0, 1, 2, 4, 0x0A, UINT8_MAX};
+        for (size_t i = 0; i < sizeof(types); ++i) {
+            set_confirm();
+            request.type = types[i];
+            expect_confirm_error(ESP_ERR_INVALID_ARG);
+        }
+        const uint16_t lengths[] = {0, 1, 7, 9, 512, UINT16_MAX};
+        for (size_t i = 0; i < sizeof(lengths) / sizeof(lengths[0]); ++i) {
+            set_confirm();
+            request.payload_length = lengths[i];
+            memset(request.payload, 0xA5, sizeof(request.payload));
+            expect_confirm_error(ESP_ERR_INVALID_ARG);
+        }
+        set_confirm();
+        request.session_id = 0;
+        expect_confirm_error(ESP_ERR_INVALID_ARG);
+        set_confirm();
+        request.sequence = UINT32_MAX;
+        expect_confirm_error(ESP_ERR_INVALID_ARG);
+    }
+}
+
+TEST_CASE("Session CONFIRM rejects mismatches and disallowed states", "[app_session]")
+{
+    prepare();
+    set_confirm();
+    expect_confirm_error(ESP_ERR_INVALID_STATE);
+    for (unsigned active = 0; active < 2; ++active) {
+        prepare_confirm();
+        if (active) {
+            TEST_ASSERT_EQUAL(ESP_OK, app_session_handle_confirm(&session, &request, &response));
+        }
+        request.session_id = SESSION_ID + 1;
+        expect_confirm_error(ESP_ERR_INVALID_STATE);
+        set_confirm();
+        app_write_u64_le(request.payload, HOST_NONCE + 1);
+        expect_confirm_error(ESP_ERR_INVALID_STATE);
+        /* A rejected CONFIRM must not invalidate the accepted session. */
+        set_confirm();
+        TEST_ASSERT_EQUAL(ESP_OK, app_session_handle_confirm(&session, &request, &response));
+        expect_ready();
+    }
+    set_confirm();
+    session.state = (app_session_state_t)99;
+    expect_confirm_error(ESP_ERR_INVALID_STATE);
+}
+
+TEST_CASE("Session repeats READY after loss without changing metadata", "[app_session]")
+{
+    prepare_confirm();
+    TEST_ASSERT_EQUAL(ESP_OK, app_session_handle_confirm(&session, &request, &response));
+    app_session_t before = session;
+    /* Discard READY to simulate loss; a wrong generator call must now fail. */
+    source.value = 0;
+    for (unsigned retry = 0; retry < 4; ++retry) {
+        memset(&response, 0xA5, sizeof(response));
+        TEST_ASSERT_EQUAL(ESP_OK, app_session_handle_confirm(&session, &request, &response));
+        expect_ready();
+        TEST_ASSERT_EQUAL(APP_SESSION_ACTIVE, session.state);
+        TEST_ASSERT_TRUE(session.session_id == before.session_id);
+        TEST_ASSERT_TRUE(session.host_nonce == before.host_nonce);
+        TEST_ASSERT_TRUE(session.device_boot_id == before.device_boot_id);
+        TEST_ASSERT_EQUAL_UINT16(before.accepted_window, session.accepted_window);
+        TEST_ASSERT_EQUAL_UINT16(before.max_payload, session.max_payload);
+        TEST_ASSERT_TRUE(session.generate_id == before.generate_id);
+        TEST_ASSERT_EQUAL_PTR(before.context, session.context);
+        TEST_ASSERT_EQUAL_UINT(1, source.calls);
+    }
+    set_hello();
+    expect_error(ESP_ERR_INVALID_STATE);
+    set_confirm();
+    TEST_ASSERT_EQUAL(ESP_OK, app_session_handle_confirm(&session, &request, &response));
+    expect_ready();
+}
+
+TEST_CASE("Session CONFIRM accepts zero nonce and maximum identifiers", "[app_session]")
+{
+    const uint64_t nonces[] = {0, UINT64_MAX};
+    for (size_t i = 0; i < 2; ++i) {
+        prepare();
+        source.value = UINT64_MAX;
+        app_write_u64_le(request.payload, nonces[i]);
+        TEST_ASSERT_EQUAL(ESP_OK, app_session_handle_hello(&session, &request, &response));
+        set_confirm();
+        request.session_id = UINT64_MAX;
+        app_write_u64_le(request.payload, nonces[i]);
+        TEST_ASSERT_EQUAL(ESP_OK, app_session_handle_confirm(&session, &request, &response));
+        TEST_ASSERT_EQUAL(APP_SESSION_ACTIVE, session.state);
+        TEST_ASSERT_TRUE(response.session_id == UINT64_MAX);
+        TEST_ASSERT_EQUAL_HEX8(4, response.type);
+        TEST_ASSERT_EQUAL_UINT16(0, response.payload_length);
+        TEST_ASSERT_EQUAL_UINT32(0, response.sequence);
+        TEST_ASSERT_EQUAL_UINT(1, source.calls);
+    }
 }

@@ -17,17 +17,21 @@
 
 #define APP_SESSION_HELLO_PAYLOAD_LEN (16U)
 #define APP_SESSION_HELLO_ACK_PAYLOAD_LEN (24U)
+#define APP_SESSION_CONFIRM_PAYLOAD_LEN (8U)
+#define APP_SESSION_READY_PAYLOAD_LEN (0U)
 #define APP_SESSION_MAX_WINDOW (8U)
 
 typedef enum {
     APP_SESSION_PACKET_HELLO = 0x01,
     APP_SESSION_PACKET_HELLO_ACK = 0x02,
+    APP_SESSION_PACKET_CONFIRM = 0x03,
+    APP_SESSION_PACKET_READY = 0x04,
 } app_session_packet_type_t;
 
 typedef enum {
     APP_SESSION_DOWN = 0,
     APP_SESSION_HANDSHAKE,
-    APP_SESSION_ACTIVE, /* Reserved for the subsequent CONFIRM/READY step. */
+    APP_SESSION_ACTIVE, /* Matching CONFIRM accepted; peer receipt of READY is not implied. */
 } app_session_state_t;
 
 /** @brief Return a fresh nonzero session ID. Randomness is supplied by the caller. */
@@ -43,8 +47,8 @@ typedef uint64_t (*app_session_generate_id_t)(void *context);
  *
  * Boot identity and callback configuration remain valid in DOWN. A successful
  * HELLO fills the pending-session fields and enters HANDSHAKE. Those fields are
- * retained so an identical HELLO can reconstruct the original ACK. ACTIVE is
- * reserved for the later CONFIRM/READY implementation.
+ * retained for retries and CONFIRM validation. A matching CONFIRM enters ACTIVE;
+ * matching duplicate CONFIRM packets reconstruct the original READY.
  */
 typedef struct {
     /** @brief Current lifecycle state; initialized to APP_SESSION_DOWN. */
@@ -53,10 +57,10 @@ typedef struct {
     /** @brief Nonzero device identity for this boot, shared across its sessions. */
     uint64_t device_boot_id;
 
-    /** @brief Device-generated nonzero pending-session ID; zero after init. */
+    /** @brief Device-generated nonzero pending/active session ID; zero after init. */
     uint64_t session_id;
 
-    /** @brief Peer-provided nonce of the accepted HELLO; meaningful in HANDSHAKE. */
+    /** @brief Accepted HELLO nonce, retained for CONFIRM and retry validation. */
     uint64_t host_nonce;
 
     /** @brief Accepted DATA window in frames, 1..8; zero after init. Not credit by itself. */
@@ -130,6 +134,48 @@ esp_err_t app_session_init(app_session_t *session, uint64_t device_boot_id, app_
  *         ESP_ERR_INVALID_STATE for a conflicting handshake/state;
  *         ESP_FAIL if the ID generator returns zero; ESP_OK with a complete ACK.
  * @note Call init first. Input/output/instance storage must not overlap. Errors
- *       leave the response and instance unchanged. No CONFIRM, timeout or credit yet.
+ *       leave the response and instance unchanged. HELLO handling does not provide timeouts or credit.
  */
 esp_err_t app_session_handle_hello(app_session_t *session, const frame_packet_t *request, frame_packet_t *response);
+
+/**
+ * @brief Validate CONFIRM and prepare READY without transmitting it.
+ *
+ * @verbatim
+ * CONFIRM decoded packet:
+ * +--------------------+--------------------+------------------+
+ * | Header: 20 bytes   | host_nonce: 8 B    | CRC32: 4 bytes   |
+ * +--------------------+--------------------+------------------+
+ * 0                   20                   28                 32
+ * Header: type=0x03, session_id=accepted ID, sequence=0, payload_length=8.
+ * Payload: accepted host_nonce, u64 little-endian at payload offset 0.
+ *
+ * READY decoded packet (empty payload):
+ * +--------------------+------------------+
+ * | Header: 20 bytes   | CRC32: 4 bytes   |
+ * +--------------------+------------------+
+ * 0                   20                 24
+ * Header: type=0x04, session_id=accepted ID, sequence=0, payload_length=0.
+ * @endverbatim
+ *
+ * First validate type, exact payload length, nonzero header session ID and zero
+ * sequence. Then require HANDSHAKE or ACTIVE and a matching session ID/nonce.
+ * In HANDSHAKE, prepare READY and enter ACTIVE. In ACTIVE, a matching duplicate
+ * CONFIRM prepares the same READY without changing session metadata. Never call
+ * the ID generator or change negotiation parameters here.
+ *
+ * The caller sends READY separately. Keep ACTIVE if sending fails: a duplicate
+ * CONFIRM must still succeed. ACTIVE means local confirmation acceptance, not
+ * peer receipt of READY. READY does not grant DATA credit.
+ *
+ * @param session Initialized, caller-owned session instance.
+ * @param request Decoded CONFIRM packet, excluding CRC/COBS/delimiter.
+ * @param response Output READY packet; meaningful only on ESP_OK.
+ * @return ESP_ERR_INVALID_ARG for NULL arguments, wrong type, nonzero sequence,
+ *         zero header session ID or a payload length other than 8;
+ *         ESP_ERR_INVALID_STATE for DOWN/unsupported state or mismatched ID/nonce;
+ *         ESP_OK when READY is prepared and the session is ACTIVE.
+ * @note Single owner; input/output/instance storage must not overlap. Errors
+ *       leave the instance and response unchanged. No UART access or allocation.
+ */
+esp_err_t app_session_handle_confirm(app_session_t *session, const frame_packet_t *request, frame_packet_t *response);

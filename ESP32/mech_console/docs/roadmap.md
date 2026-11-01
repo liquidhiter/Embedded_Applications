@@ -19,14 +19,14 @@ The full specification remains outside this repository.
 - USB console, chip/version information and periodic heap/uptime logging.
 - UART1 packet receive/send, COBS, streaming framing, CRC32 and packet validation.
 - Four-entry command queue and worker, with GET_STATUS end-to-end.
-- Independent HELLO/ACK helper: validation, pending-session creation and repeatable
-  ACKs. It is not yet connected to production UART command routing.
+- Independent HELLO/ACK and CONFIRM/READY helpers: validation, session activation
+  and repeatable responses. They are not yet connected to production UART routing.
 - RGB initialization, synchronous color setting and dim-green startup indication;
   shared board constants use the `APP_BOARD_RGB_*` prefix.
 - Component tests on QEMU and the board; physical UART tests and CI.
 
-Latest local regression (2026-11-01): 75 component cases passed on QEMU, with
-the physical RGB case skipped; 76 passed on the board, including real RMT
+Latest local regression (2026-11-01): 81 component cases passed on QEMU, with
+the physical RGB case skipped; 82 passed on the board, including real RMT
 transmission; and 17 production-firmware command/status cases passed.
 RGB color order still needs visual confirmation; driver success does not measure light output.
 The earlier 115200-baud stress results used dedicated link-test firmware;
@@ -34,7 +34,7 @@ they do not establish mixed-load or 921600-baud performance.
 
 ## Next
 
-1. Add CONFIRM/READY, then connect the handshake and session checks to UART routing;
+1. Connect the handshake and session checks to UART routing;
    add handshake timeouts, recovery and error counters.
 2. Add packet pools, credit and a dedicated TX scheduler.
 3. Add END reconciliation and run the planned throughput matrix.
@@ -45,6 +45,6 @@ Independent peripheral checks may run alongside P1, but do not complete it.
 
 - Use ESP-IDF v6.1 instead of the original v5.5.1 reference; check APIs/resources when adding drivers.
 - Run C tests on the target and QEMU, without a separate host C test project.
-- COMMAND/RESPONSE envelopes now match the original message table. Session and deduplication behavior remains pending; see [protocol.md](protocol.md).
+- COMMAND/RESPONSE envelopes now match the original message table. Production session gating and request deduplication remain pending; see [protocol.md](protocol.md).
 - Current RX ring is 2 KiB, rather than the proposed 8 KiB. Size it from measured service gaps when increasing baud/load.
 - Update this file when a milestone or acceptance gap changes. Keep build/test commands in the project README.

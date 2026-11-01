@@ -26,6 +26,6 @@ ESP-IDF, managed dependencies, test code and private implementations are exclude
 - [Roadmap](roadmap.md): implemented functionality and remaining work.
 - [Build, test and maintenance commands](https://github.com/liquidhiter/Embedded_Applications/blob/main/ESP32/mech_console/TESTING.md).
 
-HELLO/ACK helpers are component-tested but not yet connected to production UART
-routing. CONFIRM/READY, timeouts and credit remain pending. See the roadmap before
+HELLO/ACK and CONFIRM/READY helpers have component tests but are not yet connected
+to production UART routing. Timeouts and credit remain pending. See the roadmap before
 treating a declared API or planned protocol feature as available on the wire.

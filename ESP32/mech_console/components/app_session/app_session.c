@@ -2,7 +2,7 @@
  * @file    app_session.c
  * @author  maxin
  * @date    2026-11-01
- * @brief   HELLO validation and pending-session handshake handling.
+ * @brief   UART session handshake validation and response construction.
  *
  * SPDX-License-Identifier: MIT
  */
@@ -26,8 +26,16 @@ typedef struct {
     uint16_t max_payload;
 } hello_params_t;
 
+/** @brief Parameters extracted from a CONFIRM request. */
+typedef struct {
+    uint64_t session_id;
+    uint64_t host_nonce;
+} confirm_params_t;
+
 static esp_err_t parse_hello(const frame_packet_t *request, hello_params_t *params);
 static void build_hello_ack(const app_session_t *session, frame_packet_t *response);
+static esp_err_t parse_confirm(const frame_packet_t *request, confirm_params_t *params);
+static void build_confirm_ack(const app_session_t *session, frame_packet_t *response);
 
 esp_err_t app_session_init(app_session_t *session, uint64_t device_boot_id, app_session_generate_id_t generate_id,
                            void *context)
@@ -109,6 +117,48 @@ esp_err_t app_session_handle_hello(app_session_t *session, const frame_packet_t 
     return ESP_OK;
 }
 
+esp_err_t app_session_handle_confirm(app_session_t *session, const frame_packet_t *request, frame_packet_t *response)
+{
+    if (session == NULL || request == NULL || response == NULL) {
+        ESP_LOGE(TAG, "Invalid argument: session, request and response are required");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    confirm_params_t confirm;
+    esp_err_t err = parse_confirm(request, &confirm);
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    /* Prepare the next state locally; failures leave caller storage unchanged. */
+    app_session_t next = *session;
+    switch (next.state) {
+        case APP_SESSION_HANDSHAKE:
+            /* Validate the session ID and host nonce against the pending handshake. */
+            if (confirm.session_id != next.session_id || confirm.host_nonce != next.host_nonce) {
+                ESP_LOGE(TAG, "CONFIRM does not match the pending handshake");
+                return ESP_ERR_INVALID_STATE;
+            }
+            next.state = APP_SESSION_ACTIVE;
+            break;
+        case APP_SESSION_ACTIVE:
+            /* Validate the session ID and host nonce against the accepted session. */
+            if (confirm.session_id != next.session_id || confirm.host_nonce != next.host_nonce) {
+                ESP_LOGE(TAG, "CONFIRM does not match the pending handshake");
+                return ESP_ERR_INVALID_STATE;
+            }
+            /* Duplicate CONFIRM: reconstruct READY using the existing session ID. */
+            break;
+        default:
+            ESP_LOGE(TAG, "Cannot handle CONFIRM in the current session state");
+            return ESP_ERR_INVALID_STATE;
+    }
+    /* All operations are complete. Sending READY is the caller's job. */
+    build_confirm_ack(&next, response);
+    *session = next;
+    return ESP_OK;
+}
+
 static esp_err_t parse_hello(const frame_packet_t *request, hello_params_t *params)
 {
     /* The public entry point checks pointers before calling this helper. */
@@ -154,4 +204,32 @@ static void build_hello_ack(const app_session_t *session, frame_packet_t *respon
     app_write_u16_le(response->payload + 16, session->accepted_window);
     app_write_u16_le(response->payload + 18, session->max_payload);
     app_write_u32_le(response->payload + 20, 0);
+}
+
+static esp_err_t parse_confirm(const frame_packet_t *request, confirm_params_t *params)
+{
+    /* The public entry point checks pointers before calling this helper. */
+    if (request->type != APP_SESSION_PACKET_CONFIRM || request->session_id == 0 || request->sequence != 0 ||
+        request->payload_length != APP_SESSION_CONFIRM_PAYLOAD_LEN) {
+        ESP_LOGE(TAG, "Invalid CONFIRM header");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    confirm_params_t parsed = {
+        .session_id = request->session_id,
+        .host_nonce = app_read_u64_le(request->payload),
+    };
+
+    *params = parsed;
+    return ESP_OK;
+}
+
+static void build_confirm_ack(const app_session_t *session, frame_packet_t *response)
+{
+    *response = (frame_packet_t){
+        .type = APP_SESSION_PACKET_READY,
+        .session_id = session->session_id,
+        .sequence = 0,
+        .payload_length = APP_SESSION_READY_PAYLOAD_LEN,
+    };
 }

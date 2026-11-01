@@ -79,10 +79,12 @@ the LED off; pytest skips it under QEMU. It needs the LCDkit but no CH340.
 Driver success verifies transmission, not emitted color; confirm colors visually.
 Each Unity case starts after a fresh boot, since RGB has no deinitialization API.
 
-Append `-k app_session` for the nine HELLO/ACK cases: initialization, invalid
+Append `-k app_session` for the fifteen handshake cases: initialization, invalid
 arguments/headers, negotiation limits, ACK byte layout, duplicate/conflicting
 requests, state rejection, ID-generation failure and independent instances.
-They use deterministic ID callbacks on target/QEMU. The session helper is not
+CONFIRM cases cover exact READY wire bytes, transition to ACTIVE, retries,
+mismatched IDs/nonces and invalid headers in each state. Tests use deterministic
+ID callbacks on target/QEMU. The session helper is not
 yet connected to production UART routing; these are component tests, not a
 completed on-wire handshake test.
 

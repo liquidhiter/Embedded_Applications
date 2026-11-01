@@ -58,9 +58,9 @@ local ESP-IDF return value, which reports response submission success/failure.
 
 ## HELLO handshake (in development)
 
-HELLO validation, pending-session creation and repeatable ACK construction are
-implemented and component-tested. The full handshake is still in development
-and is not yet wired into the running command pipeline.
+HELLO/ACK and CONFIRM/READY helpers are implemented with component tests for
+validation, state transitions and repeatable responses. The handshake is not yet
+wired into the running command pipeline; timeouts and recovery remain pending.
 API ownership and error behavior are documented in
 [`app_session.h`](https://github.com/liquidhiter/Embedded_Applications/blob/main/ESP32/mech_console/components/app_session/include/app_session.h).
 
@@ -132,7 +132,35 @@ Errors from the handler leave the instance and response unchanged; send the
 response only after `ESP_OK`.
 
 ACK preparation or transmission does not enter ACTIVE or grant DATA credit.
-CONFIRM/READY, handshake timeouts and credit are subsequent implementation steps.
+Handshake timeouts and credit are subsequent implementation steps.
+
+### CONFIRM and READY
+
+```text
+Host                                      Device
+CONFIRM (type 0x03, accepted session) ---> Check session ID and host_nonce
+                            <------------ READY (type 0x04, same session)
+                                          State: HANDSHAKE -> ACTIVE
+```
+
+| Packet | Header session_id | sequence | Payload length | Payload |
+| --- | --- | --- | --- | --- |
+| CONFIRM, 0x03 | Nonzero ID from HELLO_ACK | 0 | 8 | Accepted host_nonce, u64 little-endian |
+| READY, 0x04 | Same accepted ID | 0 | 0 | Empty |
+
+Neither message uses the COMMAND/RESPONSE envelope. The common encoder supplies
+version 1, zero flags/reserved, CRC32, COBS and the delimiter.
+
+`app_session_handle_confirm()` validates CONFIRM and prepares READY without UART access.
+It accepts only HANDSHAKE or ACTIVE with matching session ID and nonce. Invalid
+headers return INVALID_ARG; a valid CONFIRM with no matching pending/active
+session returns INVALID_STATE. Errors preserve the instance and response.
+
+If READY is lost, the host repeats the identical CONFIRM. The device is already
+ACTIVE and must reconstruct the same READY, without generating another ID or
+changing negotiated limits. A local send failure also keeps ACTIVE for this
+retry. This transition records local acceptance; it does not prove the host
+received READY. DATA still requires credit, which is not implemented yet.
 
 ## Receive and failure behavior
 
