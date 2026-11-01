@@ -11,6 +11,7 @@
 #include "app_link.h"
 #include "app_protocol.h"
 #include "app_protocol_defs.h"
+#include "app_utils.h"
 
 static bool intercept_send;
 static bool fake_stats;
@@ -84,6 +85,14 @@ static esp_err_t dispatch(const frame_packet_t *request)
     return result;
 }
 
+static frame_packet_t status_request(uint32_t request_id)
+{
+    frame_packet_t request = {.type = APP_PACKET_TYPE_COMMAND, .payload_length = 8};
+    app_write_u32_le(request.payload, request_id);
+    app_write_u16_le(request.payload + 4, APP_COMMAND_GET_STATUS);
+    return request;
+}
+
 TEST_CASE("Protocol rejects null requests without sending", "[app_protocol]")
 {
     reset_capture();
@@ -94,9 +103,9 @@ TEST_CASE("Protocol rejects null requests without sending", "[app_protocol]")
 TEST_CASE("Protocol rejects unknown types and dispatch table holes", "[app_protocol]")
 {
     reset_capture();
-    frame_packet_t request = {0};
+    frame_packet_t request = status_request(1);
     for (unsigned type = 0; type <= UINT8_MAX; ++type) {
-        if (type == APP_PACKET_TYPE_GET_STATUS) {
+        if (type == APP_PACKET_TYPE_COMMAND) {
             continue;
         }
         request.type = (uint8_t)type;
@@ -105,52 +114,53 @@ TEST_CASE("Protocol rejects unknown types and dispatch table holes", "[app_proto
     TEST_ASSERT_EQUAL_UINT(0, send_calls);
 }
 
-TEST_CASE("Protocol rejects nonempty status requests without sending", "[app_protocol]")
+TEST_CASE("Protocol rejects malformed command envelopes without sending", "[app_protocol]")
 {
     reset_capture();
-    frame_packet_t request = {.type = APP_PACKET_TYPE_GET_STATUS};
-    const uint16_t lengths[] = {1, 16, 512, UINT16_MAX};
+    frame_packet_t request = status_request(1);
+    const uint16_t lengths[] = {0, 1, 7, 9, 64, 65, 512, UINT16_MAX};
     for (size_t i = 0; i < sizeof(lengths) / sizeof(lengths[0]); ++i) {
         request.payload_length = lengths[i];
         TEST_ASSERT_EQUAL_INT(ESP_ERR_INVALID_ARG, dispatch(&request));
     }
+    request.payload_length = 8;
+    app_write_u16_le(request.payload + 6, UINT16_MAX);
+    TEST_ASSERT_EQUAL_INT(ESP_ERR_INVALID_ARG, dispatch(&request));
+    app_write_u16_le(request.payload + 6, 0);
+    request.sequence = 1;
+    TEST_ASSERT_EQUAL_INT(ESP_ERR_INVALID_ARG, dispatch(&request));
     TEST_ASSERT_EQUAL_UINT(0, send_calls);
 }
 
 TEST_CASE("Protocol status uses the exact little endian payload layout", "[app_protocol]")
 {
     reset_capture();
-    frame_packet_t request = {
-        .type = 0x01,
-        .session_id = UINT64_C(0x8877665544332211),
-        .sequence = UINT32_C(0xFEDCBA98),
-    };
-    /* Independent byte reference: no production helpers decode the response.
-     * Uptime exceeds 32 bits and mocked microseconds have a sub-ms remainder.
-     */
+    frame_packet_t request = status_request(UINT32_C(0xFEDCBA98));
+    request.session_id = UINT64_C(0x8877665544332211);
+    /* Independent wire reference, including the response envelope. */
     const uint8_t expected[] = {
-        0x06, 0x05, 0x04, 0x03, 0x02, 0x01, 0x00, 0x00, 0x21, 0x43, 0x05, 0x00, 0x45, 0x23, 0x01, 0x00,
+        0x98, 0xBA, 0xDC, 0xFE, 0,    0,    16,   0,    0x06, 0x05, 0x04, 0x03,
+        0x02, 0x01, 0x00, 0x00, 0x21, 0x43, 0x05, 0x00, 0x45, 0x23, 0x01, 0x00,
     };
     uint8_t original[sizeof(request)];
     memcpy(original, &request, sizeof(request));
     TEST_ASSERT_EQUAL_INT(ESP_OK, dispatch(&request));
     TEST_ASSERT_EQUAL_UINT(1, send_calls);
     TEST_ASSERT_FALSE(sent_null);
-    TEST_ASSERT_EQUAL_HEX8(0x81, captured_response.type);
+    TEST_ASSERT_EQUAL_HEX8(0x0B, captured_response.type);
     TEST_ASSERT_EQUAL_UINT16(sizeof(expected), captured_response.payload_length);
     TEST_ASSERT_EQUAL_MEMORY(expected, captured_response.payload, sizeof(expected));
     TEST_ASSERT_EQUAL_MEMORY(&request.session_id, &captured_response.session_id, sizeof(request.session_id));
-    TEST_ASSERT_EQUAL_HEX32(request.sequence, captured_response.sequence);
+    TEST_ASSERT_EQUAL_HEX32(0, captured_response.sequence);
     TEST_ASSERT_EQUAL_MEMORY(original, &request, sizeof(request));
 }
 
 TEST_CASE("Protocol status preserves zero and maximum request identifiers", "[app_protocol]")
 {
-    frame_packet_t request = {.type = APP_PACKET_TYPE_GET_STATUS};
     for (unsigned i = 0; i < 2; ++i) {
         reset_capture();
+        frame_packet_t request = status_request(i == 0 ? 0 : UINT32_MAX);
         request.session_id = i == 0 ? 0 : UINT64_MAX;
-        request.sequence = i == 0 ? 0 : UINT32_MAX;
         uptime_ms = 0;
         free_heap = 0;
         min_heap = 0;
@@ -158,14 +168,15 @@ TEST_CASE("Protocol status preserves zero and maximum request identifiers", "[ap
         TEST_ASSERT_EQUAL_INT(ESP_OK, dispatch(&request));
         TEST_ASSERT_EQUAL_UINT(1, send_calls);
         TEST_ASSERT_EQUAL_MEMORY(&request.session_id, &captured_response.session_id, sizeof(request.session_id));
-        TEST_ASSERT_EQUAL_HEX32(request.sequence, captured_response.sequence);
-        TEST_ASSERT_EQUAL_MEMORY(zeros, captured_response.payload, sizeof(zeros));
+        TEST_ASSERT_EQUAL_MEMORY(request.payload, captured_response.payload, 4);
+        TEST_ASSERT_EQUAL_HEX32(0, captured_response.sequence);
+        TEST_ASSERT_EQUAL_MEMORY(zeros, captured_response.payload + 8, sizeof(zeros));
     }
 }
 
 TEST_CASE("Protocol propagates send failures without retrying", "[app_protocol]")
 {
-    frame_packet_t request = {.type = APP_PACKET_TYPE_GET_STATUS};
+    frame_packet_t request = status_request(1);
     const esp_err_t errors[] = {ESP_ERR_INVALID_STATE, ESP_ERR_NO_MEM, ESP_FAIL};
     for (size_t i = 0; i < sizeof(errors) / sizeof(errors[0]); ++i) {
         reset_capture();
@@ -176,4 +187,43 @@ TEST_CASE("Protocol propagates send failures without retrying", "[app_protocol]"
     reset_capture();
     TEST_ASSERT_EQUAL_INT(ESP_OK, dispatch(&request));
     TEST_ASSERT_EQUAL_UINT(1, send_calls);
+}
+
+TEST_CASE("Protocol returns unsupported for unknown opcodes", "[app_protocol]")
+{
+    const uint16_t opcodes[] = {0, 2, UINT16_MAX};
+    for (size_t i = 0; i < sizeof(opcodes) / sizeof(opcodes[0]); ++i) {
+        reset_capture();
+        frame_packet_t request = status_request(UINT32_C(0x12345678));
+        app_write_u16_le(request.payload + 4, opcodes[i]);
+        /* Maximum valid argument envelope must also be accepted. */
+        request.payload_length = 64;
+        app_write_u16_le(request.payload + 6, 56);
+        const uint8_t expected[] = {0x78, 0x56, 0x34, 0x12, 4, 0, 0, 0};
+        TEST_ASSERT_EQUAL_INT(ESP_OK, dispatch(&request));
+        TEST_ASSERT_EQUAL_UINT(1, send_calls);
+        TEST_ASSERT_EQUAL_HEX8(0x0B, captured_response.type);
+        TEST_ASSERT_EQUAL_UINT16(8, captured_response.payload_length);
+        TEST_ASSERT_EQUAL_MEMORY(expected, captured_response.payload, sizeof(expected));
+    }
+}
+
+TEST_CASE("Protocol returns invalid for GET_STATUS arguments", "[app_protocol]")
+{
+    const uint16_t lengths[] = {1, 56};
+    for (size_t i = 0; i < sizeof(lengths) / sizeof(lengths[0]); ++i) {
+        reset_capture();
+        frame_packet_t request = status_request(7);
+        request.payload_length = 8 + lengths[i];
+        app_write_u16_le(request.payload + 6, lengths[i]);
+        const uint8_t expected[] = {7, 0, 0, 0, 1, 0, 0, 0};
+        TEST_ASSERT_EQUAL_INT(ESP_OK, dispatch(&request));
+        TEST_ASSERT_EQUAL_UINT(1, send_calls);
+        TEST_ASSERT_EQUAL_UINT16(8, captured_response.payload_length);
+        TEST_ASSERT_EQUAL_MEMORY(expected, captured_response.payload, sizeof(expected));
+        reset_capture();
+        send_result = ESP_FAIL;
+        TEST_ASSERT_EQUAL_INT(ESP_FAIL, dispatch(&request));
+        TEST_ASSERT_EQUAL_UINT(1, send_calls);
+    }
 }

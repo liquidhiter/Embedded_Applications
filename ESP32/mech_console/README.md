@@ -104,7 +104,7 @@ uv run --group test pytest tests/frame_codec_app --embedded-services esp,idf --t
 ```
 
 Append `-k decode` to select decoder cases, or `-k decode-zero-data` for one case.
-Append `-k app_protocol` to run the six command-dispatch cases. These execute on
+Append `-k app_protocol` to run the eight command-dispatch cases. These execute on
 the target using deterministic status values and intercepted response submission.
 Append `-k app_command` for the six worker-queue cases. These use real FreeRTOS
 queues/tasks with gated handlers and injected startup allocation failures.
@@ -217,7 +217,7 @@ idf.py -DIDF_TARGET=esp32c3 build
 uv run --group test pytest tests/protocol_e2e --embedded-services esp,idf --target esp32c3 --port COM8 --uart-data-port COM10 --app-path . --build-dir build -v
 ```
 
-These eight cases validate real status values, session/sequence echoing, uptime
-progress and recovery after rejected commands or corrupted frames. No MCU-side
+These seventeen cases validate real status values, session/request-ID echoing,
+uptime progress, command error responses and recovery after malformed input. No MCU-side
 wrappers are used. The tests require the same CH340 wiring as the link tests and
 leave the normal production firmware installed. They do not run in QEMU CI.

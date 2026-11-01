@@ -2,25 +2,30 @@
  * @file    app_protocol_defs.h
  * @author  maxin
  * @date    2026-10-31
- * @brief   Definitions and constants for the application protocol.
- *
+ * @brief   Command and response wire constants.
  * SPDX-License-Identifier: MIT
  */
-
 #pragma once
 
-/**
- * @brief   Enumeration of application protocol packet types.
- */
-typedef enum { APP_PACKET_TYPE_GET_STATUS = 0x01 } app_packet_type_e;
+/** @brief Control-message types; 0x01 is reserved for the future HELLO. */
+typedef enum {
+    APP_PACKET_TYPE_COMMAND = 0x0A,
+    APP_PACKET_TYPE_RESPONSE = 0x0B,
+} app_packet_type_e;
 
-/**
- * @brief   Enumeration of application protocol response packet types.
- */
-typedef enum { APP_PACKET_RESPONSE_STATUS = 0x81 } app_packet_response_type_e;
+/** @brief Opcodes carried inside a COMMAND payload. */
+typedef enum { APP_COMMAND_GET_STATUS = 0x0001 } app_command_opcode_e;
 
-/**
- * @brief   Response packet payload length for each response type.
+/** @brief Wire status values, independent of ESP-IDF error codes. */
+typedef enum {
+    APP_RESPONSE_OK = 0,
+    APP_RESPONSE_INVALID = 1,
+    APP_RESPONSE_UNSUPPORTED = 4,
+} app_response_status_e;
+
+/* COMMAND: request_id u32, opcode u16, args_length u16, args.
+ * RESPONSE: request_id u32, status u16, result_length u16, result.
  */
-#define APP_PACKET_RESPONSE_STATUS_PAYLOAD_LEN                                                                         \
-    (16) /**< 8 bytes for uptime + 4 bytes for free heap + 4 bytes for min free heap */
+#define APP_PROTOCOL_ENVELOPE_LEN (8U)
+#define APP_PROTOCOL_MAX_ARGS_LEN (56U)
+#define APP_PROTOCOL_STATUS_RESULT_LEN (16U)
