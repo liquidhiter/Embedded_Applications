@@ -32,6 +32,7 @@ idf.py -p COM8 flash monitor
 
 ## Documentation
 
+- [Published API reference](https://liquidhiter.github.io/Embedded_Applications/ESP32/mech_console/)
 - [Testing and formatting](TESTING.md)
 - [Roadmap](docs/roadmap.md)
 - [UART protocol](docs/protocol.md)

@@ -20,6 +20,35 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  docs:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: ESP32/mech_console
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/cache@v4
+        with:
+          path: ESP32/mech_console/.cache/doxygen/
+          key: doxygen-${{ runner.os }}-1.18.0
+      - name: Build public API documentation
+        run: python tools/build_docs.py
+      - name: Upload browsable documentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: mech-console-api-docs
+          path: ESP32/mech_console/build-docs/site/
+          if-no-files-found: error
+      - name: Upload Pages site
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: ESP32/mech_console/build-docs/site/
+
   qemu:
     runs-on: ubuntu-24.04
     container: espressif/idf:v6.1
@@ -55,3 +84,20 @@ jobs:
           name: mech-console-qemu-results
           path: ESP32/mech_console/test-results/
           if-no-files-found: warn
+
+  deploy-docs:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: [docs, qemu]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v5
+      - name: Deploy API documentation
+        id: deployment
+        uses: actions/deploy-pages@v4

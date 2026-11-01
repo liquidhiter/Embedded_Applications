@@ -62,7 +62,7 @@ HELLO validation, pending-session creation and repeatable ACK construction are
 implemented and component-tested. The full handshake is still in development
 and is not yet wired into the running command pipeline.
 API ownership and error behavior are documented in
-[`app_session.h`](../components/app_session/include/app_session.h).
+[`app_session.h`](https://github.com/liquidhiter/Embedded_Applications/blob/main/ESP32/mech_console/components/app_session/include/app_session.h).
 
 ```text
 Host                                      Device

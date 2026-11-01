@@ -193,9 +193,27 @@ uv run --group dev python tools/format_sources.py --check
 
 The project CI runs the same formatting check before QEMU regression tests.
 
+## Build API documentation
+
+```powershell
+uv run python tools/build_docs.py
+```
+
+The first run downloads upstream Doxygen 1.18.0, verifies its pinned SHA-256,
+and caches it under `.cache/`. Windows/Linux x64 are supported; no ESP-IDF
+environment or firmware build is required. Open
+`build-docs/site/ESP32/mech_console/index.html` to browse the result.
+
+Inputs are public headers under `components/*/include/` and the design notes in
+`docs/`. Documentation warnings fail the build; undocumented-symbol coverage is
+not enforced yet. Cached tools and generated HTML are ignored by Git.
+
 ## CI
 
-The [project workflow](../../.github/workflows/mech-console.yml) runs formatting
-checks and QEMU regression. It does not run the physical UART tests.
+The [project workflow](../../.github/workflows/mech-console.yml) runs formatting,
+QEMU regression and a separate Doxygen build. Pull requests upload browsable
+HTML as an artifact. Successful `main` runs publish the site to GitHub Pages
+after both documentation and regression jobs pass. Physical UART tests are not
+run in cloud CI. Pages uses the repository's GitHub Actions publishing source.
 Health lifecycle tests verify stop-request acceptance, not completion of
 idle-task memory cleanup.
