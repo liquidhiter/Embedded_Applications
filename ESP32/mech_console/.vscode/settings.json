@@ -39,8 +39,7 @@
   "clangd.path": "C:\\Users\\maxin\\.espressif\\tools\\esp-clang\\esp-19.1.2_20250312\\esp-clang\\bin\\clangd.exe",
   "clangd.arguments": [
     "--background-index",
-    "--query-driver=**",
-    "--compile-commands-dir=c:\\Git\\Embedded_Applications\\ESP32\\mech_console\\build"
+    "--query-driver=**"
   ],
   "idf.flashType": "UART",
 

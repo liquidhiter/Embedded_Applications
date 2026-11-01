@@ -38,6 +38,7 @@ mech_console/
 |   |-- main/test_uart_link.c      Real UART link with a test-only packet responder
 |   `-- pytest_uart_link.py        Eight physical protocol and recovery cases
 |-- tests/conftest.py              Shared physical data-port option and opt-in guard
+|-- tests/protocol_e2e/pytest_status.py  GET_STATUS against the production firmware
 |-- tools/uart_echo_test.py         Serial echo validation
 |-- tools/run_qemu_tests.py         Discover, build, and run project QEMU tests
 |-- CMakeLists.txt                  Application build definition
@@ -201,3 +202,17 @@ boundaries do not guarantee the same boundaries in UART reads. This app requires
 ```powershell
 idf.py -p COM8 flash
 ```
+
+## Run production GET_STATUS end-to-end tests
+
+Build the normal application, then run the CH340 tests against its build directory:
+
+```powershell
+idf.py -DIDF_TARGET=esp32c3 build
+uv run --group test pytest tests/protocol_e2e --embedded-services esp,idf --target esp32c3 --port COM8 --uart-data-port COM10 --app-path . --build-dir build -v
+```
+
+These eight cases validate real status values, session/sequence echoing, uptime
+progress and recovery after rejected commands or corrupted frames. No MCU-side
+wrappers are used. The tests require the same CH340 wiring as the link tests and
+leave the normal production firmware installed. They do not run in QEMU CI.

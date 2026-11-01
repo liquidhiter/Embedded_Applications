@@ -13,7 +13,10 @@
 #include "sdkconfig.h"
 
 #include "app_health.h"
+#include "app_link.h"
+#include "app_protocol.h"
 #include "app_uart.h"
+#include "frame_packet.h"
 
 /* Application tag for logging */
 ESP_LOG_ATTR_TAG(TAG, "APP");
@@ -42,6 +45,20 @@ static void print_chip_info(void)
     ESP_LOGI(TAG, "Minimum free heap size: %" PRIu32 " bytes", esp_get_minimum_free_heap_size());
 }
 
+static void on_packet(const frame_packet_t *packet, void *context)
+{
+    (void)context;
+
+    esp_err_t err = app_protocol_handle_packet(packet);
+    if (err != ESP_OK) {
+        if (err == ESP_ERR_NOT_SUPPORTED || err == ESP_ERR_INVALID_ARG) {
+            ESP_LOGW(TAG, "Rejected packet: %s", esp_err_to_name(err));
+        } else {
+            ESP_LOGE(TAG, "Failed to handle packet: %s", esp_err_to_name(err));
+        }
+    }
+}
+
 void app_main(void)
 {
     ESP_LOGI(TAG, "Hello world!\n");
@@ -60,4 +77,11 @@ void app_main(void)
         ESP_LOGE(TAG, "Failed to start app UART: %s", esp_err_to_name(err));
         return;
     }
+
+    err = app_link_start(on_packet, NULL);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to start app link: %s", esp_err_to_name(err));
+        return;
+    }
+    ESP_LOGI(TAG, "Application link ready");
 }
