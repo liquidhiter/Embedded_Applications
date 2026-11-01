@@ -19,6 +19,7 @@ mech_console/
 |       |-- frame_codec.c          COBS encoder and decoder
 |       |-- include/               Public codec interface
 |       `-- test/                  COBS, stream, CRC32, and packet Unity cases
+|-- docs/                          Roadmap, current protocol, and hardware notes
 |-- main/main.c                    Application entry point
 |-- tests/frame_codec_app/
 |   |-- pytest_app_command.py      Queue ownership, FIFO, overload, and startup faults
