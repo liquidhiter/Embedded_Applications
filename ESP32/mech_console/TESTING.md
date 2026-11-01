@@ -21,6 +21,8 @@ Dedicated test firmware replaces the application. Restore it with
 `idf.py -p COM8 flash` after testing. Production end-to-end tests leave the
 normal application installed. QEMU does not validate physical wiring or timing.
 Generated builds, virtual environments and reports are ignored by Git.
+Pytest also excludes generated build directories and `managed_components/`, so
+third-party example tests are not included in the project regression.
 
 ## Install test dependencies
 
@@ -69,6 +71,13 @@ the target using deterministic status values and intercepted response submission
 Append `-k app_command` for the six worker-queue cases. These use real FreeRTOS
 queues/tasks with gated handlers and injected startup allocation failures.
 Append `--junitxml=test-results/codec.xml` to save a report.
+
+Append `-k app_rgb` for RGB lifecycle/configuration and error-injection cases.
+These wrap the LED driver and run on both the board and QEMU. The additional
+`rgb-hardware` case uses the real RMT driver, sends dim red/green/blue, then turns
+the LED off; pytest skips it under QEMU. It needs the LCDkit but no CH340.
+Driver success verifies transmission, not emitted color; confirm colors visually.
+Each Unity case starts after a fresh boot, since RGB has no deinitialization API.
 
 Restore the application after testing:
 

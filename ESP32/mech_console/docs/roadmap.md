@@ -8,7 +8,7 @@ The full specification remains outside this repository.
 | P0 Observable startup | Partial | Hardware inventory, board resource profiles, self-test, 20-reset check, dependency baseline and OTA partition/rollback preparation |
 | P1 UART pipeline | In progress | Handshake, session recovery, fixed packet pools, credit, TX arbitration, END reconciliation and 921600-baud validation |
 | P2 Data and rules | Not started | Sample units/timestamps, snapshots, statistics, missing-data handling and alarms |
-| P3 Panel and feedback | Not started | LCD, encoder, backlight, RGB, audio and separate IR RX/TX profiles |
+| P3 Panel and feedback | RGB bring-up only | LCD, encoder, backlight, RGB state patterns, audio and separate IR RX/TX profiles |
 | P4 Wireless | Not started | MQTT, BLE provisioning/diagnostics and coexistence measurements |
 | P5 Persistence and OTA | Not started | Maintenance barrier, transactional configuration and tested rollback |
 | P6 Real IMU | Not started | Identify hardware, integrate acquisition and validate units/timing |
@@ -19,10 +19,14 @@ The full specification remains outside this repository.
 - USB console, chip/version information and periodic heap/uptime logging.
 - UART1 packet receive/send, COBS, streaming framing, CRC32 and packet validation.
 - Four-entry command queue and worker, with GET_STATUS end-to-end.
+- RGB initialization, synchronous color setting and dim-green startup indication;
+  shared board constants use the `APP_BOARD_RGB_*` prefix.
 - Component tests on QEMU and the board; physical UART tests and CI.
 
-Latest local regression (2026-11-01): 62 component cases passed on QEMU,
-62 on the board, and 17 production-firmware command/status cases passed.
+Latest local regression (2026-11-01): 66 component cases passed on QEMU, with
+the physical RGB case skipped; 67 passed on the board, including real RMT
+transmission; and 17 production-firmware command/status cases passed.
+RGB color order still needs visual confirmation; driver success does not measure light output.
 The earlier 115200-baud stress results used dedicated link-test firmware;
 they do not establish mixed-load or 921600-baud performance.
 

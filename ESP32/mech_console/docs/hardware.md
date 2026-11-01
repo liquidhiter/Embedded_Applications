@@ -32,6 +32,10 @@ its TX logic level. Do not connect 5 V UART signals to the board GPIOs.
 UART1 is configured for 115200 baud, 8N1, without RTS/CTS.
 RX and TX driver rings are each 2048 bytes. USB carries logs; UART1 carries packets.
 
+The board RGB LED uses GPIO8: one WS2812, GRB component order, RMT at 10 MHz
+without DMA. Initialization clears the LED; the application then sets dim green
+`(0, 8, 0)`. The driver component is pinned to `espressif/led_strip` 3.1.1.
+
 ## Before adding peripherals
 
 Record the board revision, screen variant and IR jumper position. Build a complete

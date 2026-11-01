@@ -19,6 +19,7 @@
 #include "app_health.h"
 #include "app_link.h"
 #include "app_protocol.h"
+#include "app_rgb.h"
 #include "app_uart.h"
 #include "frame_packet.h"
 
@@ -90,4 +91,17 @@ void app_main(void)
         return;
     }
     ESP_LOGI(TAG, "Application link ready");
+
+    err = app_rgb_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize app RGB module: %s", esp_err_to_name(err));
+        return;
+    }
+
+    /* Use a dim green LED to indicate successful initialization. */
+    err = app_rgb_set(0, 8, 0);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to set RGB LED color: %s", esp_err_to_name(err));
+        return;
+    }
 }
